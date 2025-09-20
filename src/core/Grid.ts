@@ -13,7 +13,7 @@ this.generate()
 }
 
 inBounds(p:Vec2){ return p.x>=0 && p.y>=0 && p.x<this.w && p.y<this.h }
-isWalkable(p:Vec2){ const t=this.tiles[p.y][p.x]; return t==='floor'||t==='key'||t==='stairs'||t==='enemy'||t==='player'||t==='door'||t==='weapon'||t==='armor'||t==='event' }
+isWalkable(p:Vec2){ const t=this.tiles[p.y][p.x]; return t==='floor'||t==='key'||t==='stairs'||t==='enemy'||t==='player'||t==='door'||t==='weapon'||t==='armor'||t==='event'||t==='item' }
 
 generate(){
 // �~����
@@ -47,3 +47,4 @@ while(x!==b.x){ x+=dx; if(this.tiles[y][x]==='wall') this.tiles[y][x]='floor' }
 while(y!==b.y){ y+=dy; if(this.tiles[y][x]==='wall') this.tiles[y][x]='floor' }
 }
 }
+

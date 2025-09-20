@@ -1,4 +1,4 @@
-import { TILE, COLORS, GLYPH } from '../content/tilesets'
+﻿import { TILE, COLORS, GLYPH } from '../content/tilesets'
 import { enemies } from '../content/enemies'
 import { simulateCombat, getEffectiveCombatStats, describeDirection } from './combat'
 
@@ -20,6 +20,7 @@ export function draw(scene: any) {
   const weaponInfoBlocks: string[] = []
   const armorInfoBlocks: string[] = []
   const eventInfoBlocks: string[] = []
+  const itemInfoBlocks: string[] = []
   const playerCombat = getEffectiveCombatStats(scene)
 
   for (let y = 0; y < scene.grid.h; y++) {
@@ -165,6 +166,13 @@ export function draw(scene: any) {
     : 'Events nearby: none'
   const eventInfoColor = eventInfoBlocks.length ? '#ffe9a6' : '#888'
 
+  const itemInfoText = itemInfoBlocks.length
+    ? itemInfoBlocks.join('\n\n')
+    : 'Items nearby: none'
+  const itemInfoColor = itemInfoBlocks.length ? '#ffd27f' : '#888'
+
+  const totalItems = scene.inventory?.reduce((sum: number, stack: any) => sum + (stack.quantity ?? 0), 0) ?? 0
+
   const statsLines = [
     `FLOOR ${scene.floor}`,
     `HP ${scene.playerStats.hp}`,
@@ -172,7 +180,8 @@ export function draw(scene: any) {
     `DEF ${playerCombat.def}`,
     `KEY ${scene.hasKey ? 'Y' : 'N'}`,
     `WEAPON ${scene.playerWeapon ? scene.playerWeapon.name : 'None'}`,
-    `ARMOR ${scene.playerArmor ? scene.playerArmor.name : 'None'}`
+    `ARMOR ${scene.playerArmor ? scene.playerArmor.name : 'None'}`,
+    `ITEMS ${totalItems}`,
   ]
   if (scene.playerWeapon) {
     const special = scene.playerWeapon.special
@@ -207,6 +216,7 @@ export function draw(scene: any) {
     'E Enemy',
     'W Weapon',
     'A Armor',
+    '! Item',
     '? Event'
   ].join('\n')
   addTextOnce(scene, 'legend', sidebarX, currentY, legendText, '#9fd')
@@ -227,7 +237,48 @@ export function draw(scene: any) {
   const eventLinesCount = Math.max(eventInfoText.split('\n').length, 1)
   addTextOnce(scene, 'event_info', sidebarX, currentY, eventInfoText, eventInfoColor)
   currentY += eventLinesCount * lineHeight + sectionGap
+
+  const itemLinesCount = Math.max(itemInfoText.split('\n').length, 1)
+  addTextOnce(scene, 'item_info', sidebarX, currentY, itemInfoText, itemInfoColor)
+  currentY += itemLinesCount * lineHeight + sectionGap
+  const inventoryStacks: any[] = scene.inventory ?? []
+  const inventoryLines = inventoryStacks.length
+    ? inventoryStacks.map((stack: any, idx: number) => {
+        const qty = stack.quantity > 1 ? ` x${stack.quantity}` : ''
+        const label = stack.def?.name ?? stack.name ?? 'Unknown'
+        return `${idx + 1}. ${label}${qty}`
+      })
+    : ['(empty)']
+  const inventoryHeader = 'Inventory (1-9 to use)'
+  const inventoryText = [inventoryHeader, ...inventoryLines].join('\n')
+  const inventoryColor = inventoryStacks.length ? '#cfe' : '#888'
+  const inventoryLinesCount = Math.max(inventoryText.split('\n').length, 1)
+  addTextOnce(scene, 'inventory', sidebarX, currentY, inventoryText, inventoryColor)
+  currentY += inventoryLinesCount * lineHeight + sectionGap
+
+  const lastMessage = (scene.lastActionMessage ?? '').trim()
+  const lastActionText = ['Last action:', lastMessage.length ? lastMessage : 'None'].join('\n')
+  const actionLinesCount = Math.max(lastActionText.split('\n').length, 1)
+  addTextOnce(scene, 'last_action', sidebarX, currentY, lastActionText, '#ffe9a6')
+  currentY += actionLinesCount * lineHeight + sectionGap
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

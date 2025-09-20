@@ -1,9 +1,12 @@
-﻿import { pickupWeapon, pickupArmor } from './spawning'
+﻿import { pickupWeapon, pickupArmor, pickupItem } from './spawning'
 import { draw } from './render'
 
 export function handleInput(scene: any, key: string) {
   if (scene.battleOverlay?.isActive) return
   if (scene.eventOverlay?.isActive) return
+  if (/^[1-9]$/.test(key)) {
+    if (scene.useInventorySlot?.(Number.parseInt(key, 10) - 1)) return
+  }
   const dir = ({
     ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 },
     w: { x: 0, y: -1 }, s: { x: 0, y: 1 }, a: { x: -1, y: 0 }, d: { x: 1, y: 0 }
@@ -32,11 +35,8 @@ export function handleInput(scene: any, key: string) {
   if (t === 'stairs') { scene.scene.restart({ floor: scene.floor + 1 }); return }
   if (t === 'weapon') { pickupWeapon(scene, np) }
   if (t === 'armor') { pickupArmor(scene, np) }
+  if (t === 'item') { pickupItem(scene, np) }
   if (t === 'event') { scene.startEvent(np) }
 
   draw(scene)
 }
-
-
-
-

@@ -3,78 +3,130 @@
 export const events: EventDef[] = [
   {
     id: 'ancient-fountain',
-    title: '古老泉水',
-    description: '一池散發著柔和藍光的泉水，水面平靜卻似乎暗藏神秘力量。',
-    preview: '清澈泉水散發微光。',
+    title: 'Ancient Fountain',
+    description: 'A forgotten fountain murmurs with latent magic. The water glows softly beneath the dust.',
+    preview: 'A shimmering fountain invites you closer.',
     options: [
       {
         id: 'drink',
-        label: '直接飲用',
+        label: 'Drink deeply',
         outcome: {
-          message: '泉水溫暖包覆著你，HP +30。',
+          message: 'You drink the luminous water and feel life rush back into your veins.',
           hpDelta: 30
         }
       },
       {
         id: 'wash',
-        label: '用泉水清洗傷口',
+        label: 'Wash your weapon',
         outcome: {
-          message: '泉水有些冰冷，你失去 10 HP，但武技蓄力 +2。',
+          message: 'Your weapon hums as the water courses over it, yet the power strains your body.',
           hpDelta: -10,
           weaponChargeDelta: 2
+        }
+      },
+      {
+        id: 'collect-herbs',
+        label: 'Harvest healing moss',
+        outcome: {
+          message: 'You gather a bundle of glowing moss that smells of rain and earth.',
+          grantItems: [{ id: 'healing-herb', quantity: 1 }]
         }
       }
     ]
   },
   {
     id: 'forgotten-altar',
-    title: '遺忘的祭壇',
-    description: '石製祭壇覆滿灰塵，中央擺著一顆褪色水晶，儀式文字已模糊不清。',
-    preview: '神秘祭壇靜靜等待旅人。',
+    title: 'Forgotten Altar',
+    description: 'Candles lie cold around a cracked altar. Offerings from long ago still rest in the dust.',
+    preview: 'Ancient prayers hang heavy in the air.',
     minFloor: 2,
     options: [
       {
         id: 'pray',
-        label: '虔誠祈禱',
+        label: 'Offer a quick prayer',
         outcome: {
-          message: '黑暗力量回應了你，HP -15，但獲得鑰匙。',
+          message: 'A harsh warmth answers you. You feel weakened, but a key materialises in your grasp.',
           hpDelta: -15,
           giveKey: true
         }
       },
       {
         id: 'offer-blood',
-        label: '以鮮血祭獻',
+        label: 'Spill a few drops of blood',
         outcome: {
-          message: '你付出 5 HP，武技蓄力 +1。',
+          message: 'You score your palm and press it to the stone. A whisper sharpens your weapon arm.',
           hpDelta: -5,
           weaponChargeDelta: 1
+        }
+      },
+      {
+        id: 'inspect-offerings',
+        label: 'Inspect the old offerings',
+        outcome: {
+          message: 'Among the faded trinkets you find a crackling crystal, still warm to the touch.',
+          grantItems: [{ id: 'charge-crystal', quantity: 1 }]
         }
       }
     ]
   },
   {
     id: 'sealed-cache',
-    title: '封印寶匣',
-    description: '厚重的寶匣被暗紅鎖鏈纏繞，伴隨微弱的低鳴聲。',
-    preview: '鎖鏈纏繞的寶箱，散發邪異氣息。',
+    title: 'Sealed Cache',
+    description: 'A heavy coffer is chained to the floor, its lock crusted with verdigris.',
+    preview: 'Someone hid valuables here long ago.',
     minFloor: 3,
     options: [
       {
         id: 'force-open',
-        label: '強行打開',
+        label: 'Force it open',
         outcome: {
-          message: '鎖鏈反噬，你受到 20 點傷害，但武技蓄力 +3。',
+          message: 'The chains snap, but the effort leaves you drained.',
           hpDelta: -20,
           weaponChargeDelta: 3
         }
       },
       {
         id: 'study',
-        label: '耐心研究封印',
+        label: 'Study the mechanism',
         outcome: {
-          message: '你找到安全的開啟方式，HP +20。',
-          hpDelta: 20
+          message: 'You find the bypass rune and ease the lid open. Inside rests a carefully wrapped ration.',
+          hpDelta: 20,
+          grantItems: [{ id: 'iron-ration', quantity: 1 }]
+        }
+      }
+    ]
+  },
+  {
+    id: 'lost-pack',
+    title: 'Lost Pack',
+    description: 'A leather satchel lies beside a skeleton, its straps gnawed by time. Supplies spill out in the dust.',
+    preview: 'Someone left their gear behind.',
+    options: [
+      {
+        id: 'take-everything',
+        label: 'Take everything useful',
+        outcome: {
+          message: 'You salvage the best of the supplies and stash them away.',
+          grantItems: [
+            { id: 'healing-herb', quantity: 2 },
+            { id: 'iron-ration', quantity: 1 }
+          ]
+        }
+      },
+      {
+        id: 'share',
+        label: 'Leave something for the next delver',
+        outcome: {
+          message: 'You take only a small bundle, hoping the next traveler finds the rest.',
+          grantItems: [{ id: 'healing-herb', quantity: 1 }]
+        }
+      },
+      {
+        id: 'search-remains',
+        label: 'Search the remains for clues',
+        outcome: {
+          message: 'A note tucked in the pack teaches you routes through the tower. You feel steadier.',
+          hpDelta: 10
         }
       }
     ]

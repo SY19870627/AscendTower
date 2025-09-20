@@ -1,6 +1,7 @@
-import { weapons } from '../content/weapons'
+﻿import { weapons } from '../content/weapons'
 import { armors } from '../content/armors'
-import type { Vec2, WeaponDef, ArmorDef } from '../core/Types'
+import { items } from '../content/items'
+import type { Vec2, WeaponDef, ArmorDef, ItemDef } from '../core/Types'
 
 export function makePosKey(x: number, y: number) {
   return `${x},${y}`
@@ -47,4 +48,27 @@ export function pickupArmor(scene: any, pos: Vec2) {
   scene.playerArmor = armor
   scene.armorDrops.delete(key)
   scene.cameras.main.flash(120, 120, 200, 255)
+}
+
+export function spawnItems(scene: any) {
+  const available = items.filter(item => (item.minFloor ?? 1) <= scene.floor)
+  const pool = available.length ? available : items
+  if (!pool.length) return
+  const baseCount = 1 + Math.floor(scene.floor / 4)
+  const spawnCount = Math.max(1, Math.min(baseCount, 3))
+  for (let i = 0; i < spawnCount; i++) {
+    const pos = scene.grid.place('item')
+    const chosen = pool[scene.grid.rng.int(0, pool.length - 1)] as ItemDef
+    scene.itemDrops.set(makePosKey(pos.x, pos.y), chosen)
+  }
+}
+
+export function pickupItem(scene: any, pos: Vec2) {
+  const key = makePosKey(pos.x, pos.y)
+  const item: ItemDef | undefined = scene.itemDrops.get(key)
+  if (!item) return
+  const message: string = scene.addItemToInventory(item)
+  scene.itemDrops.delete(key)
+  scene.cameras.main.flash(120, 200, 140, 255)
+  scene.lastActionMessage = message
 }

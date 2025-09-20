@@ -1,11 +1,12 @@
 ﻿import Phaser from 'phaser'
 import { Grid } from '../core/Grid'
-import type { ArmorDef, EventDef, EventOutcome, Vec2, WeaponDef } from '../core/Types'
+import type { ArmorDef, EventDef, EventOutcome, Vec2, WeaponDef, ItemDef } from '../core/Types'
 import { handleInput } from '../systems/input'
 import { draw } from '../systems/render'
-import { spawnWeapons, spawnArmors, makePosKey } from '../systems/spawning'
+import { spawnWeapons, spawnArmors, spawnItems, makePosKey } from '../systems/spawning'
 import { enemies } from '../content/enemies'
 import { events } from '../content/events'
+import { getItemDef } from '../content/items'
 import { BattleOverlay, type BattleInitData } from './BattleOverlay'
 import { EventOverlay, type EventResolution } from './EventOverlay'
 export class GameScene extends Phaser.Scene {
@@ -27,6 +28,9 @@ export class GameScene extends Phaser.Scene {
   weaponDrops = new Map<string, WeaponDef>()
   armorDrops = new Map<string, ArmorDef>()
   eventNodes = new Map<string, EventDef>()
+  itemDrops = new Map<string, ItemDef>()
+  inventory: { def: ItemDef; quantity: number }[] = []
+  lastActionMessage = ''
   battleOverlay!: BattleOverlay
   eventOverlay!: EventOverlay
 
@@ -46,14 +50,15 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.grid = new Grid(11, 11, Date.now() & 0xffff)
     this.gridOrigin = { x: this.sidebarWidth + this.sidebarPadding, y: 0 }
-
     this.weaponDrops.clear()
     this.armorDrops.clear()
     this.eventNodes.clear()
+    this.itemDrops.clear()
     spawnWeapons(this)
     spawnArmors(this)
+    spawnItems(this)
     this.spawnEvents()
-
+    this.lastActionMessage = ''
     this.gfx = this.add.graphics()
     this.gfx.setDepth(0)
 
@@ -140,10 +145,66 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    if (Array.isArray(outcome.grantItems) && outcome.grantItems.length) {
+      for (const grant of outcome.grantItems) {
+        const def = getItemDef(grant.id)
+        if (!def) {
+          append(`An unknown item (${grant.id}) eludes your grasp.`)
+          continue
+        }
+        const quantity = Math.max(grant.quantity ?? 1, 1)
+        const gainMessage = this.addItemToInventory(def, quantity, { silent: true })
+        append(gainMessage)
+      }
+    }
+
     this.cameras.main.flash(90, 120, 220, 255)
     draw(this)
     return message
   }
+  addItemToInventory(item: ItemDef, quantity = 1, options?: { silent?: boolean }): string {
+    const amount = Math.max(quantity, 1)
+    if (item.stackable) {
+      const existing = this.inventory.find(entry => entry.def.id === item.id)
+      if (existing) {
+        existing.quantity += amount
+      } else {
+        this.inventory.push({ def: item, quantity: amount })
+      }
+    } else {
+      for (let i = 0; i < amount; i++) {
+        this.inventory.push({ def: item, quantity: 1 })
+      }
+    }
+
+    const label = amount > 1 ? `${item.name} x${amount}` : item.name
+    const message = `Gained ${label}.`
+    if (!options?.silent) {
+      this.lastActionMessage = message
+    }
+    return message
+  }
+
+  useInventorySlot(index: number): boolean {
+    const stack = this.inventory[index]
+    if (!stack) return false
+    const item = stack.def
+
+    if (item.stackable) {
+      stack.quantity = Math.max(stack.quantity - 1, 0)
+      if (stack.quantity <= 0) {
+        this.inventory.splice(index, 1)
+      }
+    } else {
+      this.inventory.splice(index, 1)
+    }
+
+    const outcomeMessage = this.applyEventOutcome(item.effect)
+    this.lastActionMessage = `Used ${item.name}.\n${outcomeMessage}`
+    draw(this)
+    return true
+  }
+
   completeEvent(pos: Vec2, _resolution: EventResolution) {
     const key = makePosKey(pos.x, pos.y)
     this.eventNodes.delete(key)
@@ -211,6 +272,26 @@ export class GameScene extends Phaser.Scene {
 }
 
 export default GameScene
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
