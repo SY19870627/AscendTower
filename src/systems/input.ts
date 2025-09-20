@@ -1,0 +1,42 @@
+﻿import { pickupWeapon, pickupArmor } from './spawning'
+import { draw } from './render'
+
+export function handleInput(scene: any, key: string) {
+  if (scene.battleOverlay?.isActive) return
+  if (scene.eventOverlay?.isActive) return
+  const dir = ({
+    ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 },
+    w: { x: 0, y: -1 }, s: { x: 0, y: 1 }, a: { x: -1, y: 0 }, d: { x: 1, y: 0 }
+  } as any)[key]
+  if (!dir) return
+
+  const np = { x: scene.grid.playerPos.x + dir.x, y: scene.grid.playerPos.y + dir.y }
+  if (!scene.grid.inBounds(np)) return
+
+  const t = scene.grid.tiles[np.y][np.x]
+  if (t === 'wall') return
+
+  if (t === 'enemy') {
+    scene.startBattle(np)
+    return
+  }
+
+  if (t === 'door' && !scene.hasKey) { scene.cameras.main.shake(80, 0.003); return }
+
+  scene.grid.tiles[scene.grid.playerPos.y][scene.grid.playerPos.x] = 'floor'
+  scene.grid.playerPos = np
+  scene.grid.tiles[np.y][np.x] = 'player'
+
+  if (t === 'key') { scene.hasKey = true }
+  if (t === 'door' && scene.hasKey) { scene.grid.tiles[np.y][np.x] = 'floor' }
+  if (t === 'stairs') { scene.scene.restart({ floor: scene.floor + 1 }); return }
+  if (t === 'weapon') { pickupWeapon(scene, np) }
+  if (t === 'armor') { pickupArmor(scene, np) }
+  if (t === 'event') { scene.startEvent(np) }
+
+  draw(scene)
+}
+
+
+
+
