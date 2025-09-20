@@ -11,6 +11,7 @@ export const COLORS = {
   enemy: 0xd96b6b,
   weapon: 0x7fd96b,
   armor: 0x6ba9d9,
+  shop: 0xff9f43,
   item: 0xffc04d,
 } as const
 
@@ -25,8 +26,10 @@ export const GLYPH = {
   enemy: 'E',
   armor: 'A',
   weapon: 'W',
+  shop: 'S',
   item: '!',
 } as const
+
 
 
 

@@ -1,4 +1,4 @@
-﻿import { TILE, COLORS, GLYPH } from '../content/tilesets'
+import { TILE, COLORS, GLYPH } from '../content/tilesets'
 import { enemies } from '../content/enemies'
 import { simulateCombat, getEffectiveCombatStats, describeDirection } from './combat'
 
@@ -20,6 +20,7 @@ export function draw(scene: any) {
   const weaponInfoBlocks: string[] = []
   const armorInfoBlocks: string[] = []
   const eventInfoBlocks: string[] = []
+  const shopInfoBlocks: string[] = []
   const itemInfoBlocks: string[] = []
   const playerCombat = getEffectiveCombatStats(scene)
 
@@ -122,7 +123,24 @@ export function draw(scene: any) {
         }
       }
 
-      if (t === 'event') {
+        if (t === 'shop') {
+          const shop = scene.shopNodes?.get(`${x},${y}`)
+          if (shop) {
+            const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
+            if (adj) {
+              const dx = x - scene.grid.playerPos.x
+              const dy = y - scene.grid.playerPos.y
+              const dirLabel = describeDirection(dx, dy)
+              const lines = [
+                `Shop(${dirLabel}): ${shop.title}`,
+                shop.description
+              ]
+              shopInfoBlocks.push(lines.join('\\n'))
+            }
+          }
+        }
+
+        if (t === 'event') {
         const event = scene.eventNodes?.get(`${x},${y}`)
         if (event) {
           const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
@@ -166,6 +184,11 @@ export function draw(scene: any) {
     : 'Events nearby: none'
   const eventInfoColor = eventInfoBlocks.length ? '#ffe9a6' : '#888'
 
+  const shopInfoText = shopInfoBlocks.length
+    ? shopInfoBlocks.join('\\n\\n')
+    : 'Shops nearby: none'
+  const shopInfoColor = shopInfoBlocks.length ? '#ffb347' : '#888'
+
   const itemInfoText = itemInfoBlocks.length
     ? itemInfoBlocks.join('\n\n')
     : 'Items nearby: none'
@@ -179,6 +202,7 @@ export function draw(scene: any) {
     `ATK ${playerCombat.atk}`,
     `DEF ${playerCombat.def}`,
     `KEY ${scene.hasKey ? 'Y' : 'N'}`,
+    `COINS ${scene.coins}`,
     `WEAPON ${scene.playerWeapon ? scene.playerWeapon.name : 'None'}`,
     `ARMOR ${scene.playerArmor ? scene.playerArmor.name : 'None'}`,
     `ITEMS ${totalItems}`,
@@ -216,6 +240,7 @@ export function draw(scene: any) {
     'E Enemy',
     'W Weapon',
     'A Armor',
+    'S Shop',
     '! Item',
     '? Event'
   ].join('\n')
@@ -238,7 +263,11 @@ export function draw(scene: any) {
   addTextOnce(scene, 'event_info', sidebarX, currentY, eventInfoText, eventInfoColor)
   currentY += eventLinesCount * lineHeight + sectionGap
 
-  const itemLinesCount = Math.max(itemInfoText.split('\n').length, 1)
+  const shopLinesCount = Math.max(shopInfoText.split('\\n').length, 1)
+  addTextOnce(scene, 'shop_info', sidebarX, currentY, shopInfoText, shopInfoColor)
+  currentY += shopLinesCount * lineHeight + sectionGap
+
+  const itemLinesCount = Math.max(itemInfoText.split('\\n').length, 1)
   addTextOnce(scene, 'item_info', sidebarX, currentY, itemInfoText, itemInfoColor)
   currentY += itemLinesCount * lineHeight + sectionGap
   const inventoryStacks: any[] = scene.inventory ?? []
@@ -262,6 +291,14 @@ export function draw(scene: any) {
   addTextOnce(scene, 'last_action', sidebarX, currentY, lastActionText, '#ffe9a6')
   currentY += actionLinesCount * lineHeight + sectionGap
 }
+
+
+
+
+
+
+
+
 
 
 

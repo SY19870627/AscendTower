@@ -1,9 +1,10 @@
-﻿import { pickupWeapon, pickupArmor, pickupItem } from './spawning'
+import { pickupWeapon, pickupArmor, pickupItem } from './spawning'
 import { draw } from './render'
 
 export function handleInput(scene: any, key: string) {
   if (scene.battleOverlay?.isActive) return
   if (scene.eventOverlay?.isActive) return
+  if (scene.shopOverlay?.isActive) return
   if (/^[1-9]$/.test(key)) {
     if (scene.useInventorySlot?.(Number.parseInt(key, 10) - 1)) return
   }
@@ -36,7 +37,10 @@ export function handleInput(scene: any, key: string) {
   if (t === 'weapon') { pickupWeapon(scene, np) }
   if (t === 'armor') { pickupArmor(scene, np) }
   if (t === 'item') { pickupItem(scene, np) }
+  if (t === 'shop') { scene.startShop(np) }
   if (t === 'event') { scene.startEvent(np) }
 
   draw(scene)
 }
+
+

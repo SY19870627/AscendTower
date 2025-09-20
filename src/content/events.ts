@@ -1,4 +1,4 @@
-﻿import type { EventDef } from '../core/Types'
+import type { EventDef } from '../core/Types'
 
 export const events: EventDef[] = [
   {
@@ -63,8 +63,9 @@ export const events: EventDef[] = [
         id: 'inspect-offerings',
         label: 'Inspect the old offerings',
         outcome: {
-          message: 'Among the faded trinkets you find a crackling crystal, still warm to the touch.',
-          grantItems: [{ id: 'charge-crystal', quantity: 1 }]
+          message: 'Among the faded trinkets you find a crackling crystal, still warm to the touch. A hidden tithe box yields 30 coins.',
+          grantItems: [{ id: 'charge-crystal', quantity: 1 }],
+          coinDelta: 30
         }
       }
     ]
@@ -106,11 +107,12 @@ export const events: EventDef[] = [
         id: 'take-everything',
         label: 'Take everything useful',
         outcome: {
-          message: 'You salvage the best of the supplies and stash them away.',
+          message: 'You salvage the best of the supplies and stash them away. A few coins jingle loose in the pack.',
           grantItems: [
             { id: 'healing-herb', quantity: 2 },
             { id: 'iron-ration', quantity: 1 }
-          ]
+          ],
+          coinDelta: 40
         }
       },
       {
@@ -125,10 +127,15 @@ export const events: EventDef[] = [
         id: 'search-remains',
         label: 'Search the remains for clues',
         outcome: {
-          message: 'A note tucked in the pack teaches you routes through the tower. You feel steadier.',
-          hpDelta: 10
+          message: 'A note tucked in the pack teaches you routes through the tower. You feel steadier and spot a forgotten coin purse.',
+          hpDelta: 10,
+          coinDelta: 25
         }
       }
     ]
   }
 ]
+
+
+
+

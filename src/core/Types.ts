@@ -10,6 +10,7 @@ export type Tile =
   | 'weapon'
   | 'armor'
   | 'event'
+  | 'shop'
   | 'item'
 export interface EnemyDef { id: string; name: string; base: { hp: number; atk: number; def: number }; mods?: string[] }
 export interface WeaponSpecial { name: string; damage: number; chargeMax: number; desc?: string }
@@ -42,12 +43,28 @@ export interface EventOutcome {
   weaponChargeDelta?: number
   giveKey?: boolean
   grantItems?: ItemGrant[]
+  coinDelta?: number
 }
 
 export interface EventOption {
   id: string
   label: string
   outcome: EventOutcome
+}
+
+export interface ShopOffer {
+  id: string
+  itemId: string
+  price: number
+  quantity?: number
+}
+
+export interface ShopDef {
+  id: string
+  title: string
+  description: string
+  minFloor?: number
+  offers: ShopOffer[]
 }
 
 export interface EventDef {

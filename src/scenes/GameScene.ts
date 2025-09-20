@@ -1,14 +1,16 @@
 ﻿import Phaser from 'phaser'
 import { Grid } from '../core/Grid'
-import type { ArmorDef, EventDef, EventOutcome, Vec2, WeaponDef, ItemDef } from '../core/Types'
+import type { ArmorDef, EventDef, EventOutcome, Vec2, WeaponDef, ItemDef, ShopDef } from '../core/Types'
 import { handleInput } from '../systems/input'
 import { draw } from '../systems/render'
 import { spawnWeapons, spawnArmors, spawnItems, makePosKey } from '../systems/spawning'
 import { enemies } from '../content/enemies'
 import { events } from '../content/events'
+import { getShopsForFloor } from '../content/shops'
 import { getItemDef } from '../content/items'
 import { BattleOverlay, type BattleInitData } from './BattleOverlay'
 import { EventOverlay, type EventResolution } from './EventOverlay'
+import { ShopOverlay, type ShopResolution, type ShopInventoryEntry } from './ShopOverlay'
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene')
@@ -21,6 +23,7 @@ export class GameScene extends Phaser.Scene {
   playerWeapon: WeaponDef | null = null
   playerArmor: ArmorDef | null = null
   weaponCharge = 0
+  coins = 120
   readonly sidebarWidth = 360
   readonly sidebarPadding = 16
   gridOrigin = { x: 0, y: 0 }
@@ -28,11 +31,13 @@ export class GameScene extends Phaser.Scene {
   weaponDrops = new Map<string, WeaponDef>()
   armorDrops = new Map<string, ArmorDef>()
   eventNodes = new Map<string, EventDef>()
+  shopNodes = new Map<string, ShopDef>()
   itemDrops = new Map<string, ItemDef>()
   inventory: { def: ItemDef; quantity: number }[] = []
   lastActionMessage = ''
   battleOverlay!: BattleOverlay
   eventOverlay!: EventOverlay
+  shopOverlay!: ShopOverlay
 
   init(data?: { floor?: number; reset?: boolean }) {
     if (data?.reset) this.resetPlayerState()
@@ -45,6 +50,11 @@ export class GameScene extends Phaser.Scene {
     this.playerWeapon = null
     this.playerArmor = null
     this.weaponCharge = 0
+    this.coins = 120
+    this.inventory = []
+    this.itemDrops.clear()
+    this.shopNodes.clear()
+    this.lastActionMessage = ''
   }
 
   create() {
@@ -54,9 +64,11 @@ export class GameScene extends Phaser.Scene {
     this.armorDrops.clear()
     this.eventNodes.clear()
     this.itemDrops.clear()
+    this.shopNodes.clear()
     spawnWeapons(this)
     spawnArmors(this)
     spawnItems(this)
+    this.spawnShops()
     this.spawnEvents()
     this.lastActionMessage = ''
     this.gfx = this.add.graphics()
@@ -69,6 +81,7 @@ export class GameScene extends Phaser.Scene {
 
     this.battleOverlay = new BattleOverlay(this)
     this.eventOverlay = new EventOverlay(this)
+    this.shopOverlay = new ShopOverlay(this)
 
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => handleInput(this, e.key))
     draw(this)
@@ -76,9 +89,23 @@ export class GameScene extends Phaser.Scene {
     this.add.text(
       this.sidebarPadding,
       sidebarHeight - 24,
-      'WASD/Arrow keys move. Stand near enemies for previews. Legend: @ You  K Key  D Door  > Stairs  E Enemy  W Weapon  A Armor  ? Event.',
+      'WASD/Arrow keys move. Stand near enemies for previews. Legend: @ You  K Key  D Door  > Stairs  E Enemy  W Weapon  A Armor  S Shop  ? Event.',
       { fontSize: '12px', color: '#9fd' }
     ).setDepth(1)
+  }
+  private spawnShops() {
+    const available = getShopsForFloor(this.floor)
+    if (!available.length) return
+
+    const pool = [...available]
+    const spawnCount = Math.min(Math.max(1, Math.floor(this.floor / 4) + 1), pool.length)
+
+    for (let i = 0; i < spawnCount; i++) {
+      const pick = this.grid.rng.int(0, pool.length - 1)
+      const def = pool.splice(pick, 1)[0]
+      const pos = this.grid.place('shop')
+      this.shopNodes.set(makePosKey(pos.x, pos.y), def)
+    }
   }
   private spawnEvents() {
     const available = events.filter(event => (event.minFloor ?? 1) <= this.floor)
@@ -95,6 +122,28 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  startShop(pos: Vec2) {
+    if (this.shopOverlay?.isActive) return
+    const key = makePosKey(pos.x, pos.y)
+    const shopDef = this.shopNodes.get(key)
+    if (!shopDef) return
+
+    const entries: ShopInventoryEntry[] = shopDef.offers
+      .map(offer => {
+        const item = getItemDef(offer.itemId)
+        if (!item) return null
+        return { offer, item } as ShopInventoryEntry
+      })
+      .filter((entry): entry is ShopInventoryEntry => entry !== null)
+
+    if (!entries.length) {
+      this.lastActionMessage = 'The merchant has nothing left to sell.'
+      draw(this)
+      return
+    }
+
+    this.shopOverlay.open({ shop: shopDef, pos, entries, coins: this.coins })
+  }
   startEvent(pos: Vec2) {
     if (this.eventOverlay?.isActive) return
     const key = makePosKey(pos.x, pos.y)
@@ -158,6 +207,12 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    if (typeof outcome.coinDelta === 'number') {
+      const before = this.coins
+      const after = Math.max(before + outcome.coinDelta, 0)
+      this.coins = after
+      append(`Coins: ${before} -> ${after}`)
+    }
     this.cameras.main.flash(90, 120, 220, 255)
     draw(this)
     return message
@@ -205,6 +260,25 @@ export class GameScene extends Phaser.Scene {
     return true
   }
 
+  purchaseFromShop(entry: ShopInventoryEntry): { success: boolean; message: string; coins: number } {
+    const cost = Math.max(entry.offer.price, 0)
+    if (this.coins < cost) {
+      const message = `Not enough coins. Need ${cost}, have ${this.coins}.`
+      this.lastActionMessage = message
+      draw(this)
+      return { success: false, message, coins: this.coins }
+    }
+
+    const before = this.coins
+    this.coins = Math.max(this.coins - cost, 0)
+    const amount = Math.max(entry.offer.quantity ?? 1, 1)
+    const gainMessage = this.addItemToInventory(entry.item, amount, { silent: true })
+    const summary = `Purchased ${entry.item.name}${amount > 1 ? ` x${amount}` : ''} for ${cost} coins.`
+    const message = `${summary}\n${gainMessage}\nCoins: ${before} -> ${this.coins}`
+    this.lastActionMessage = message
+    draw(this)
+    return { success: true, message, coins: this.coins }
+  }
   completeEvent(pos: Vec2, _resolution: EventResolution) {
     const key = makePosKey(pos.x, pos.y)
     this.eventNodes.delete(key)
@@ -216,6 +290,16 @@ export class GameScene extends Phaser.Scene {
     draw(this)
   }
 
+  completeShop(pos: Vec2, _resolution: ShopResolution) {
+    const key = makePosKey(pos.x, pos.y)
+    this.shopNodes.delete(key)
+
+    if (this.grid.tiles[pos.y][pos.x] === 'shop') {
+      this.grid.tiles[pos.y][pos.x] = 'floor'
+    }
+
+    draw(this)
+  }
   startBattle(enemyPos: Vec2) {
     if (this.eventOverlay?.isActive) return
     if (this.battleOverlay?.isActive) return
@@ -272,6 +356,32 @@ export class GameScene extends Phaser.Scene {
 }
 
 export default GameScene
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
