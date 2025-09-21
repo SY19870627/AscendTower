@@ -174,6 +174,17 @@ export class PlayerState {
     return armor
   }
 
+  reorderSkill(index: number, delta: number): boolean {
+    const source = index
+    const target = source + delta
+    if (source < 0 || source >= this.knownSkills.length) return false
+    if (target < 0 || target >= this.knownSkills.length) return false
+    if (delta === 0) return true
+    const [skill] = this.knownSkills.splice(source, 1)
+    this.knownSkills.splice(target, 0, skill)
+    return true
+  }
+
   getSkillByIndex(index: number): SkillDef | undefined {
     return this.knownSkills[index]
   }

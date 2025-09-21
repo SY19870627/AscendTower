@@ -140,6 +140,7 @@ export class GameScene extends Phaser.Scene {
   resetPlayerState() {
     this.playerState.reset()
     this.itemDrops.clear()
+    this.npcNodes.clear()
     this.shopNodes.clear()
     this.lastActionMessage = ''
   }
@@ -151,6 +152,7 @@ export class GameScene extends Phaser.Scene {
     this.weaponDrops.clear()
     this.armorDrops.clear()
     this.eventNodes.clear()
+    this.npcNodes.clear()
     this.shopNodes.clear()
     this.itemDrops.clear()
     this.playerState.activeStatuses = []
@@ -357,6 +359,13 @@ export class GameScene extends Phaser.Scene {
     this.appendActionMessages(lines)
     draw(this)
     return { success: true, message: lines[0] }
+  }
+  reorderSkill(index: number, delta: number): boolean {
+    const moved = this.playerState.reorderSkill(index, delta)
+    if (moved) {
+      draw(this)
+    }
+    return moved
   }
 
   toggleLibrary(category?: LibraryCategory) {

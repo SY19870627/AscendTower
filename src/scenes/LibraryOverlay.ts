@@ -142,6 +142,12 @@ export class LibraryOverlay {
       event.preventDefault()
       this.moveSelection(1)
       return
+    if (this.category === 'skills' && (key === '[' || key === ']')) {
+      event.preventDefault()
+      const delta = key === '[' ? -1 : 1
+      this.reorderSelectedSkill(delta)
+      return
+    }
     }
 
     if (key === 'Enter' || key === ' ' || key === 'Spacebar' || key === 'Space') {
@@ -215,6 +221,7 @@ export class LibraryOverlay {
       '[1] Weapons  [2] Armor  [3] Items  [4] Skills',
       'Use Up/Down to navigate, Enter to equip/use, Esc or L to close.'
     ]
+    if (this.category === 'skills') instructionLines.push('Use [ and ] to reorder skills.')
     if (this.statusMessage) instructionLines.push(this.statusMessage)
     this.instructionText?.setText(instructionLines.join('\n'))
   }
@@ -367,6 +374,31 @@ export class LibraryOverlay {
     }
   }
 
+  private reorderSelectedSkill(delta: number) {
+    const skills = this.host.knownSkills ?? []
+    if (!skills.length) {
+      this.statusMessage = 'No skills to reorder.'
+      this.refresh()
+      return
+    }
+    const target = this.selectedIndex + delta
+    if (target < 0 || target >= skills.length) {
+      this.statusMessage = delta < 0 ? 'Already at the top.' : 'Already at the bottom.'
+      this.refresh()
+      return
+    }
+    const moved = this.host.reorderSkill?.(this.selectedIndex, delta) ?? false
+    if (!moved) {
+      this.statusMessage = 'Unable to reorder skills.'
+      this.refresh()
+      return
+    }
+    const updatedSkills = this.host.knownSkills ?? skills
+    this.selectedIndex = target
+    const skill = updatedSkills[target]
+    this.statusMessage = skill ? `Moved ${skill.name} ${delta < 0 ? 'up' : 'down'}.` : 'Skill order updated.'
+    this.refresh()
+  }
   private performAction() {
     switch (this.category) {
       case 'weapons': {
