@@ -25,6 +25,7 @@ export class BattleOverlay {
   playerArmor: ArmorDef | null = null
   playerHp = 0
   startingHp = 0
+  playerAtkBase = 0
   playerDef = 0
   weaponCharge = 0
   chargeMax = 0
@@ -61,11 +62,17 @@ export class BattleOverlay {
     this.isActive = true
     this.enemy = data.enemy
     this.enemyPos = data.enemyPos
+
+    const statusBonuses = typeof this.host.getStatusBonuses === 'function'
+      ? this.host.getStatusBonuses()
+      : { atk: 0, def: 0 }
+
     this.playerWeapon = data.player.weapon
     this.playerArmor = data.player.armor
     this.playerHp = data.player.hp
     this.startingHp = data.player.hp
-    this.playerDef = data.player.armor?.def ?? 0
+    this.playerAtkBase = (data.player.weapon?.atk ?? 0) + (statusBonuses.atk ?? 0)
+    this.playerDef = (data.player.armor?.def ?? 0) + (statusBonuses.def ?? 0)
     this.weaponCharge = data.player.weaponCharge
     this.chargeMax = this.playerWeapon?.special?.chargeMax ?? 0
     this.weaponCharge = this.chargeMax > 0 ? Math.min(this.weaponCharge, this.chargeMax) : 0
@@ -79,21 +86,13 @@ export class BattleOverlay {
     this.battleEnded = false
     this.victory = false
 
-    this.preview = simulateCombat(
-      {
-        playerWeapon: this.playerWeapon,
-        playerArmor: this.playerArmor,
-        weaponCharge: this.weaponCharge,
-        playerStats: { hp: this.playerHp }
-      } as any,
-      this.enemy
-    )
+    this.preview = simulateCombat(this.host, this.enemy)
     this.canWin = this.preview.canWin
 
     this.createUI()
     this.updateStatsText()
-    this.appendLog(`你遇到了 ${this.enemy.name}！`)
-    if (!this.canWin) this.appendLog('目前贏不了這場戰鬥。')
+    this.appendLog(`你遭遇 ${this.enemy.name}！`)
+    if (!this.canWin) this.appendLog('根據預測，目前無法戰勝對手。')
     this.updateInstructions()
 
     this.host.input.keyboard?.on('keydown', this.handleKey, this)
@@ -129,9 +128,9 @@ export class BattleOverlay {
 
   private createUI() {
     const { width, height } = this.host.scale
-    const panelWidth = 690
-    const panelHeight = 540
-    const depthBase = 2000
+    const panelWidth = 680
+    const panelHeight = 440
+    const depthBase = 2600
 
     this.backdrop = this.host.add
       .rectangle(width / 2, height / 2, width, height, 0x000000, 0.55)
@@ -140,202 +139,214 @@ export class BattleOverlay {
       .setInteractive({ useHandCursor: false })
 
     this.panel = this.host.add
-      .rectangle(width / 2, height / 2, panelWidth, panelHeight, 0x08151d, 0.95)
-      .setStrokeStyle(2, 0x4fa6ff, 0.85)
+      .rectangle(width / 2, height / 2, panelWidth, panelHeight, 0x101b24, 0.94)
+      .setStrokeStyle(2, 0xffb347, 0.85)
       .setScrollFactor(0)
       .setDepth(depthBase + 1)
 
+    const panelTop = height / 2 - panelHeight / 2
+    const panelLeft = width / 2 - panelWidth / 2
+
     this.titleText = this.host.add
-      .text(width / 2, height / 2 - panelHeight / 2 + 24, '戰鬥', { fontSize: '24px', color: '#ffffff' })
+      .text(width / 2, panelTop + 18, `VS ${this.enemy.name}`, { fontSize: '24px', color: '#ffe9a6' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
-    const leftX = width / 2 - panelWidth / 2 + 24
-    const rightX = width / 2 + panelWidth / 2 - 24
-    const topY = (this.titleText?.y ?? 0) + 36
-
     this.playerText = this.host.add
-      .text(leftX, topY, '', { fontSize: '16px', color: '#cfe' })
+      .text(panelLeft + 32, panelTop + 60, '', {
+        fontSize: '16px',
+        color: '#cfe',
+        lineSpacing: 6
+      })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.enemyText = this.host.add
-      .text(rightX, topY, '', { fontSize: '16px', color: '#fbb', align: 'right' })
-      .setOrigin(1, 0)
+      .text(panelLeft + panelWidth - 250, panelTop + 60, '', {
+        fontSize: '16px',
+        color: '#fcd',
+        lineSpacing: 6
+      })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
-    const logTop = topY + 210
     this.logText = this.host.add
-      .text(leftX, logTop, '', { fontSize: '16px', color: '#ddd', wordWrap: { width: panelWidth - 48 } })
+      .text(panelLeft + 32, panelTop + panelHeight - 150, '', {
+        fontSize: '15px',
+        color: '#ffe9a6',
+        wordWrap: { width: panelWidth - 64 },
+        lineSpacing: 4
+      })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.instructionText = this.host.add
-      .text(width / 2, height / 2 + panelHeight / 2 - 32, '', { fontSize: '16px', color: '#9fd' })
+      .text(width / 2, panelTop + panelHeight - 40, '', { fontSize: '14px', color: '#9fd' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
   }
 
-  private handleKey = (event: KeyboardEvent) => {
-    if (!this.isActive) return
+  private updateStatsText() {
+    if (!this.playerText || !this.enemyText) return
 
-    const { key, code } = event
-
-    if (key === 'Escape') {
-      if (this.battleEnded) {
-        this.resolveAfterBattle()
-      } else {
-        this.retreat()
+    const weaponLines: string[] = []
+    if (this.playerWeapon) {
+      weaponLines.push(`武器: ${this.playerWeapon.name} (ATK ${this.playerAtkBase})`)
+      if (this.playerWeapon.special) {
+        const ready = this.chargeMax > 0 && this.weaponCharge >= this.chargeMax
+        weaponLines.push(`特技 ${this.playerWeapon.special.name} 傷害 ${this.playerWeapon.special.damage}`)
+        weaponLines.push(`蓄力 ${this.weaponCharge}/${this.chargeMax}${ready ? ' READY' : ''}`)
+        if (this.playerWeapon.special.desc) weaponLines.push(this.playerWeapon.special.desc)
       }
-      return
+    } else {
+      weaponLines.push(`武器: 素手 (ATK ${this.playerAtkBase})`)
+      weaponLines.push('特技: 無')
     }
 
-    if (key === '1' || code === 'Digit1' || code === 'Numpad1') {
-      event.preventDefault()
-      this.setAutoAdvance(500)
-      return
-    }
-
-    if (key === '2' || code === 'Digit2' || code === 'Numpad2') {
-      event.preventDefault()
-      this.setAutoAdvance(1000)
-      return
-    }
-
-    if (key === ' ' || key === 'Spacebar' || key === 'Space' || key === 'Enter') {
-      event.preventDefault()
-      this.stopAutoAdvance(false)
-      if (this.battleEnded) {
-        this.resolveAfterBattle()
-      } else {
-        this.startOrAdvanceBattle()
+    const armorLines: string[] = []
+    if (this.playerArmor) {
+      armorLines.push(`防具: ${this.playerArmor.name} (+DEF ${this.playerArmor.def})`)
+      if (typeof this.playerArmor.shield === 'number') {
+        armorLines.push(`護盾: ${Math.max(this.shieldRemaining, 0)}/${this.playerArmor.shield}`)
       }
-    }
-  }
-
-  private setAutoAdvance(intervalMs: number) {
-    if (this.battleEnded) return
-
-    if (!this.canWin) {
-      this.appendLog('目前勝算不足，無法啟動自動戰鬥。')
-      this.host.cameras.main.shake(80, 0.002)
-      this.stopAutoAdvance()
-      return
+      if (this.playerArmor.desc) armorLines.push(this.playerArmor.desc)
+    } else if (this.shieldMax > 0) {
+      armorLines.push(`護盾: ${Math.max(this.shieldRemaining, 0)}/${this.shieldMax}`)
     }
 
-    if (this.autoAdvanceIntervalMs === intervalMs && this.autoAdvanceEvent) {
-      this.appendLog('停止自動戰鬥。')
-      this.stopAutoAdvance()
-      return
-    }
+    const playerLines = [
+      '你',
+      `HP: ${this.playerHp}/${this.startingHp}`,
+      `DEF: ${this.playerDef}`,
+      ...weaponLines,
+      ...armorLines
+    ]
 
-    this.stopAutoAdvance(false)
+    this.playerText.setText(playerLines.join('\n'))
 
-    this.autoAdvanceIntervalMs = intervalMs
-    this.autoAdvanceEvent = this.host.time.addEvent({
-      delay: intervalMs,
-      loop: true,
-      callback: () => {
-        if (!this.isActive || this.battleEnded) {
-          this.stopAutoAdvance(false)
-          return
-        }
+    const enemyLines = [
+      this.enemy.name,
+      `HP: ${this.enemyHp}`,
+      `ATK: ${this.enemy.base.atk}`,
+      `DEF: ${this.enemy.base.def}`,
+      this.canWin ? `預測勝利 (失血 ${this.preview.lossHp})` : '目前無法戰勝'
+    ]
 
-        this.startOrAdvanceBattle()
-
-        if (this.battleEnded) {
-          this.stopAutoAdvance(false)
-        }
-      }
-    })
-
-    const seconds = intervalMs === 500 ? '0.5' : (intervalMs / 1000).toString()
-    this.appendLog(`啟動自動戰鬥（每 ${seconds} 秒）。`)
-    this.startOrAdvanceBattle()
+    this.enemyText.setText(enemyLines.join('\n'))
     this.updateInstructions()
   }
 
-  private stopAutoAdvance(updateInstructions = true) {
-    const hadAuto = !!this.autoAdvanceEvent || this.autoAdvanceIntervalMs > 0
+  private updateInstructions() {
+    if (!this.instructionText) return
 
-    this.autoAdvanceEvent?.destroy()
-    this.autoAdvanceEvent = undefined
-    this.autoAdvanceIntervalMs = 0
-
-    if (updateInstructions && hadAuto) {
-      this.updateInstructions()
+    let actionLine: string
+    if (this.battleEnded) {
+      actionLine = '按 Enter / Space / Esc 離開戰鬥。'
+    } else if (!this.canWin) {
+      actionLine = '按 Esc 撤退。'
+    } else if (!this.battleStarted) {
+      actionLine = '按 Enter / Space 開始戰鬥，Esc 撤退。'
+    } else {
+      actionLine = '按 Enter / Space 進行下一回合。'
     }
+
+    const lines = [actionLine]
+
+    if (!this.battleEnded && this.canWin) {
+      if (this.autoAdvanceIntervalMs > 0 && this.autoAdvanceEvent) {
+        const seconds = this.autoAdvanceIntervalMs === 500 ? '0.5' : (this.autoAdvanceIntervalMs / 1000).toString()
+        lines.push(`自動戰鬥中，每 ${seconds} 秒一回合，按 0 停止。`)
+      } else {
+        lines.push('按 1 設定 0.5 秒自動戰鬥，按 2 設定 1 秒，按 0 停止。')
+      }
+    }
+
+    this.instructionText.setText(lines.join('\n'))
   }
-  private startOrAdvanceBattle() {
-    if (!this.canWin) {
-      this.host.cameras.main.shake(80, 0.002)
-      this.appendLog('你需要變得更強再來挑戰。')
-      return
-    }
+
+  private appendLog(line: string) {
+    this.logs.push(line)
+    if (this.logs.length > 16) this.logs.shift()
+    this.logText?.setText(this.logs.join('\n'))
+  }
+
+  private tick(auto = false) {
     if (!this.battleStarted) {
       this.battleStarted = true
-      this.appendLog('戰鬥開始！')
-      this.updateInstructions()
     }
-    this.advanceRound()
-  }
 
-  private advanceRound() {
-    if (this.battleEnded) return
-    this.round += 1
+    if (this.battleEnded) {
+      if (auto) this.stopAutoAdvance(false)
+      return
+    }
 
+    this.round++
+
+    const baseAtk = this.playerAtkBase
     const enemyDef = this.enemy.base.def
-    const baseAtk = this.playerWeapon?.atk ?? 0
-    const special = this.playerWeapon?.special
     let damage = Math.max(1, baseAtk - enemyDef)
     let usedSpecial = false
-
-    if (special && this.chargeMax > 0) {
-      if (this.weaponCharge >= this.chargeMax) {
-        damage = Math.max(1, special.damage - enemyDef)
+    const special = this.playerWeapon?.special
+    if (special) {
+      if (this.chargeMax > 0 && this.weaponCharge >= this.chargeMax) {
+        damage = Math.max(1, (special.damage ?? baseAtk) - enemyDef)
         this.weaponCharge = 0
-        this.specialUses += 1
         usedSpecial = true
-      } else {
+        this.specialUses++
+      } else if (this.chargeMax > 0) {
         this.weaponCharge = Math.min(this.weaponCharge + 1, this.chargeMax)
       }
     }
 
-    this.enemyHp = Math.max(this.enemyHp - damage, 0)
-    this.appendLog(`第 ${this.round} 回合：你造成 ${damage} 傷害${usedSpecial ? '（必殺技）' : ''}。`)
-
+    this.enemyHp -= damage
+    this.appendLog(`你造成 ${damage} 傷害${usedSpecial ? '（特技）' : ''}。`)
     if (this.enemyHp <= 0) {
-      this.appendLog(`${this.enemy.name} 被擊倒！`)
       this.finishBattle(true)
+      if (auto) this.stopAutoAdvance(false)
       return
     }
 
     const rawEnemyDamage = Math.max(1, this.enemy.base.atk - this.playerDef)
+    let remainingDamage = rawEnemyDamage
     let shieldAbsorbed = 0
     if (this.shieldRemaining > 0) {
-      shieldAbsorbed = Math.min(this.shieldRemaining, rawEnemyDamage)
+      shieldAbsorbed = Math.min(this.shieldRemaining, remainingDamage)
       this.shieldRemaining -= shieldAbsorbed
+      remainingDamage -= shieldAbsorbed
+    }
+    if (remainingDamage > 0) {
+      this.playerHp -= remainingDamage
     }
 
-    const incomingDamage = Math.max(rawEnemyDamage - shieldAbsorbed, 0)
-    if (shieldAbsorbed > 0) this.appendLog(`護盾吸收了 ${shieldAbsorbed} 點傷害。`)
-
-    if (incomingDamage > 0) {
-      this.playerHp = Math.max(this.playerHp - incomingDamage, 0)
-      this.appendLog(`${this.enemy.name} 反擊造成 ${incomingDamage} 傷害。`)
-    } else {
-      this.appendLog(`${this.enemy.name} 的攻擊被完全擋下。`)
-    }
+    this.appendLog(
+      `敵人造成 ${rawEnemyDamage} 傷害` +
+        (shieldAbsorbed > 0 ? `（護盾吸收 ${shieldAbsorbed}）` : '') +
+        (remainingDamage > 0 ? `，HP 剩 ${Math.max(this.playerHp, 0)}` : '，護盾全數吸收')
+    )
 
     if (this.playerHp <= 0) {
       this.finishBattle(false)
+      if (auto) this.stopAutoAdvance(false)
       return
     }
 
     this.updateStatsText()
+  }
+
+  private startAutoAdvance(intervalSeconds: number) {
+    this.stopAutoAdvance()
+    const intervalMs = Math.max(intervalSeconds * 1000, 100)
+    this.autoAdvanceIntervalMs = intervalMs
+    this.autoAdvanceEvent = this.host.time.addEvent({ delay: intervalMs, callback: this.tick, callbackScope: this, loop: true })
+  }
+
+  private stopAutoAdvance(updateInstruction = true) {
+    this.autoAdvanceEvent?.remove(false)
+    this.autoAdvanceEvent = undefined
+    this.autoAdvanceIntervalMs = 0
+    if (updateInstruction) this.updateInstructions()
   }
 
   private finishBattle(victory: boolean) {
@@ -344,7 +355,7 @@ export class BattleOverlay {
     this.battleEnded = true
     this.victory = victory
     this.updateStatsText()
-    this.appendLog(victory ? '戰鬥勝利！' : '你倒下了...')
+    this.appendLog(victory ? '你贏得了戰鬥！' : '你倒下了……')
     this.updateInstructions()
   }
 
@@ -366,93 +377,63 @@ export class BattleOverlay {
     this.host.cancelBattle()
   }
 
-  private updateStatsText() {
-    if (!this.playerText || !this.enemyText) return
+  private handleKey = (event: KeyboardEvent) => {
+    if (!this.isActive) return
 
-    const weaponLines: string[] = []
-    if (this.playerWeapon) {
-      weaponLines.push(`武器：${this.playerWeapon.name} (ATK ${this.playerWeapon.atk})`)
-      if (this.playerWeapon.special) {
-        const ready = this.chargeMax > 0 && this.weaponCharge >= this.chargeMax
-        weaponLines.push(`必殺技：${this.playerWeapon.special.name} 傷害 ${this.playerWeapon.special.damage}`)
-        weaponLines.push(`充能：${this.weaponCharge}/${this.chargeMax}${ready ? '（可用）' : ''}`)
-        if (this.playerWeapon.special.desc) weaponLines.push(this.playerWeapon.special.desc)
+    const key = event.key
+
+    if (key === 'Escape') {
+      event.preventDefault()
+      if (this.battleEnded) {
+        this.resolveAfterBattle()
       } else {
-        weaponLines.push('必殺技：無')
+        this.retreat()
       }
-    } else {
-      weaponLines.push('武器：徒手 (ATK 0)')
-      weaponLines.push('必殺技：無')
+      return
     }
 
-    const armorLines: string[] = []
-    if (this.playerArmor) {
-      armorLines.push(`防具：${this.playerArmor.name} (+DEF ${this.playerArmor.def})`)
-      if (typeof this.playerArmor.shield === 'number') {
-        armorLines.push(`護盾：${Math.max(this.shieldRemaining, 0)}/${this.playerArmor.shield}`)
-      }
-      if (this.playerArmor.desc) armorLines.push(this.playerArmor.desc)
-    } else if (this.shieldMax > 0) {
-      armorLines.push(`護盾：${Math.max(this.shieldRemaining, 0)}/${this.shieldMax}`)
-    }
-
-    const playerLines = [
-      '玩家',
-      `HP：${this.playerHp}/${this.startingHp}`,
-      `DEF：${this.playerDef}`,
-      ...weaponLines,
-      ...armorLines
-    ]
-
-    this.playerText.setText(playerLines.join('\n'))
-
-    const enemyLines = [
-      this.enemy.name,
-      `HP：${this.enemyHp}`,
-      `ATK：${this.enemy.base.atk}`,
-      `DEF：${this.enemy.base.def}`,
-      this.canWin ? `預估損失 HP：-${this.preview.lossHp}` : '你暫時無法獲勝'
-    ]
-
-    this.enemyText.setText(enemyLines.join('\n'))
-    this.updateInstructions()
-  }
-
-  private updateInstructions() {
-    if (!this.instructionText) return
-
-    let actionLine: string
     if (this.battleEnded) {
-      actionLine = '按 Enter / 空白鍵結束戰鬥，Esc 返回。'
-    } else if (!this.canWin) {
-      actionLine = '按 Esc 撤退，先提升戰力再來挑戰。'
-    } else if (!this.battleStarted) {
-      actionLine = '按 Enter / 空白鍵開始戰鬥，Esc 撤退。'
-    } else {
-      actionLine = '按 Enter / 空白鍵繼續下一回合。'
-    }
-
-    const lines = [actionLine]
-
-    if (!this.battleEnded && this.canWin) {
-      if (this.autoAdvanceIntervalMs > 0 && this.autoAdvanceEvent) {
-        const seconds = this.autoAdvanceIntervalMs === 500 ? '0.5' : (this.autoAdvanceIntervalMs / 1000).toString()
-        lines.push(`自動戰鬥中：每 ${seconds} 秒進行，按相同數字停止。`)
-      } else {
-        lines.push('按 1 啟動每 0.5 秒自動，按 2 啟動每 1 秒自動。')
+      if (key === 'Enter' || key === ' ' || key === 'Spacebar' || key === 'Space') {
+        event.preventDefault()
+        this.resolveAfterBattle()
       }
+      return
     }
 
-    this.instructionText.setText(lines.join('\n'))
-  }  private appendLog(line: string) {
-    this.logs.push(line)
-    if (this.logs.length > 12) this.logs.shift()
-    this.logText?.setText(this.logs.join('\n'))
+    if (!this.canWin) {
+      if (key === 'Enter' || key === ' ' || key === 'Spacebar' || key === 'Space') {
+        event.preventDefault()
+        this.tick()
+      }
+      return
+    }
+
+    if (key === 'Enter' || key === ' ' || key === 'Spacebar' || key === 'Space') {
+      event.preventDefault()
+      this.tick()
+      return
+    }
+
+    if (key === '1') {
+      event.preventDefault()
+      this.startAutoAdvance(0.5)
+      this.updateInstructions()
+      return
+    }
+
+    if (key === '2') {
+      event.preventDefault()
+      this.startAutoAdvance(1)
+      this.updateInstructions()
+      return
+    }
+
+    if (key === '0') {
+      event.preventDefault()
+      this.stopAutoAdvance()
+      return
+    }
   }
 }
 
 export default BattleOverlay
-
-
-
-
