@@ -326,18 +326,6 @@ export function draw(scene: any) {
 
       drawTileIcon(scene, tile, drawX, drawY, tileSize)
 
-      if (tile !== 'floor' && tile !== 'wall') {
-        const glyph = (GLYPH as Record<string, string | undefined>)[tile]
-        if (glyph) {
-          addText(scene, activeTextIds, `glyph_${x}_${y}`, drawX + tileSize / 2, drawY + tileSize / 2, glyph, {
-            fontSize: '18px',
-            color: '#ffffff',
-            depth: 2,
-            originX: 0.5,
-            originY: 0.5
-          })
-        }
-      }
     }
   }
 
@@ -496,6 +484,7 @@ export function draw(scene: any) {
 }
 
 export default draw
+
 
 
 
