@@ -2,6 +2,13 @@
 
 const catalog: WeaponDef[] = [
   {
+  id: 'bare-hands',
+  name: '赤手空拳',
+  atk: 1,
+  special: { name: '空拳突擊', damage: 3, chargeMax: 2, desc: '勉強集氣的直拳，威力有限。' },
+  desc: '沒有武器，只能靠雙拳應戰。'
+  },
+  {
     id: 'rusty-sword',
     name: '鏽蝕長劍',
     atk: 5,
