@@ -32,6 +32,11 @@ export class GameScene extends Phaser.Scene {
     super('GameScene')
   }
 
+  preload() {
+    this.load.spritesheet('floor_wall', 'assets/floor_wall.png', { frameWidth: 16, frameHeight: 16 })
+    this.load.spritesheet('symbol_tiles', 'assets/symbol_tiles.png', { frameWidth: 16, frameHeight: 16 })
+  }
+
   grid!: Grid
   gfx!: Phaser.GameObjects.Graphics
   readonly sidebarWidth = 360

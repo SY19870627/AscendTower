@@ -1,4 +1,4 @@
-import { TILE, COLORS, GLYPH } from '../content/tilesets'
+import { TILE, GLYPH } from '../content/tilesets'
 import type { SkillDef } from '../core/Types'
 import { enemies } from '../content/enemies'
 import { getEffectiveCombatStats, describeDirection } from './combat'
@@ -14,6 +14,53 @@ const DIRECTION_LABEL: Record<DirectionKey, string> = {
 }
 const DIRECTION_ORDER: DirectionKey[] = ['UP', 'DOWN', 'LEFT', 'RIGHT']
 
+const SPRITE_FRAME_SIZE = 16
+const FLOOR_WALL_SHEET_KEY = 'floor_wall'
+const SYMBOL_SHEET_KEY = 'symbol_tiles'
+
+type TileSpriteConfig = {
+  texture: string
+  frame: number
+}
+
+const TILE_SPRITES: Partial<Record<string, TileSpriteConfig>> = {
+  player: { texture: SYMBOL_SHEET_KEY, frame: 0 },
+  key: { texture: SYMBOL_SHEET_KEY, frame: 1 },
+  door: { texture: SYMBOL_SHEET_KEY, frame: 2 },
+  stairs: { texture: SYMBOL_SHEET_KEY, frame: 3 },
+  enemy: { texture: SYMBOL_SHEET_KEY, frame: 4 },
+  weapon: { texture: SYMBOL_SHEET_KEY, frame: 5 },
+  armor: { texture: SYMBOL_SHEET_KEY, frame: 6 },
+  shop: { texture: SYMBOL_SHEET_KEY, frame: 7 },
+  npc: { texture: SYMBOL_SHEET_KEY, frame: 8 },
+  event: { texture: SYMBOL_SHEET_KEY, frame: 9 }
+}
+
+function updateTileSprite(scene: any, id: string, texture: string, frame: number, drawX: number, drawY: number, size: number, depth: number) {
+  const key = `spr_${id}`
+  const existing = scene.children.getByName(key) as Phaser.GameObjects.Image | undefined
+  const cx = drawX + size / 2
+  const cy = drawY + size / 2
+  const scale = size / SPRITE_FRAME_SIZE
+  if (existing) {
+    existing
+      .setTexture(texture, frame)
+      .setPosition(cx, cy)
+      .setScale(scale)
+      .setDepth(depth)
+      .setVisible(true)
+      .setActive(true)
+    return existing
+  }
+  const image = scene.add.image(cx, cy, texture, frame)
+  image.setOrigin(0.5).setScale(scale).setDepth(depth).setName(key).setVisible(true).setActive(true)
+  return image
+}
+
+function hideTileSprite(scene: any, id: string) {
+  const sprite = scene.children.getByName(`spr_${id}`) as Phaser.GameObjects.Image | undefined
+  sprite?.setVisible(false).setActive(false)
+}
 function drawTileIcon(scene: any, tile: string, drawX: number, drawY: number, size: number) {
   const g = scene.gfx
   const cx = drawX + size / 2
@@ -189,16 +236,31 @@ export function draw(scene: any) {
       const tile = scene.grid.tiles[y][x]
       const drawX = baseX + x * s
       const drawY = baseY + y * s
-      const color = COLORS[tile as keyof typeof COLORS] ?? COLORS.floor
+      const tileKey = `${x}_${y}`
+      const backgroundFrame = tile === 'wall' ? 1 : 0
+      updateTileSprite(scene, `bg_${tileKey}`, FLOOR_WALL_SHEET_KEY, backgroundFrame, drawX, drawY, s, -2)
 
-      scene.gfx.fillStyle(color, 1).fillRect(drawX, drawY, s - 1, s - 1)
+      const spriteDef = TILE_SPRITES[tile as keyof typeof TILE_SPRITES]
+      if (spriteDef) {
+        updateTileSprite(scene, `fg_${tileKey}`, spriteDef.texture, spriteDef.frame, drawX, drawY, s, -1)
+      } else {
+        hideTileSprite(scene, `fg_${tileKey}`)
+      }
 
-      const glyph = (GLYPH as any)[tile] ?? ''
+      const showGlyph = !spriteDef && tile !== 'floor' && tile !== 'wall'
+      const glyphValue = showGlyph ? (GLYPH as any)[tile] ?? '' : ''
       const glyphId = `glyph_${x}_${y}`
-      const gx = drawX + (s / 2 - 10)
-      const gy = drawY + (s / 2 - 12)
-      addTextOnce(scene, glyphId, gx, gy, glyph, '#ffffff')
-      drawTileIcon(scene, tile, drawX, drawY, s)
+      if (glyphValue) {
+        const glyph = addTextOnce(scene, glyphId, drawX + (s / 2 - 10), drawY + (s / 2 - 12), glyphValue, '#ffffff')
+        glyph.setVisible(true)
+      } else {
+        const existingGlyph = scene.children.getByName(`txt_${glyphId}`) as Phaser.GameObjects.Text | undefined
+        existingGlyph?.setVisible(false)
+      }
+
+      if (showGlyph) {
+        drawTileIcon(scene, tile, drawX, drawY, s)
+      }
 
       const dx = x - scene.grid.playerPos.x
       const dy = y - scene.grid.playerPos.y
