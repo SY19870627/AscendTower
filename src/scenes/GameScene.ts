@@ -896,7 +896,10 @@ export class GameScene extends Phaser.Scene {
   getEnemyAt(pos: Vec2) {
     const exists = this.grid.enemyPos.some(p => p.x === pos.x && p.y === pos.y)
     if (!exists) return null
-    return enemies[0]
+    const pool = enemies.filter(enemy => (enemy.minFloor ?? 1) <= this.floor)
+    const selection = pool.length ? pool : enemies
+    const index = this.grid.rng.int(0, selection.length - 1)
+    return selection[index]
   }
 
   finishBattle(outcome: { enemyPos: Vec2; remainingHp: number; weaponCharge: number }) {
@@ -997,6 +1000,7 @@ ${details}`, coins: this.coins }
 }
 
 export default GameScene
+
 
 
 

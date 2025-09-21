@@ -32,6 +32,48 @@ const catalog: StatusDef[] = [
     duration: 3,
     hpPerTurn: -4,
     type: 'debuff'
+  },
+  {
+    id: 'ember-ward',
+    name: '炎羽護幕',
+    description: '接下來 3 回合防禦力提升 3 點。',
+    duration: 3,
+    defBonus: 3,
+    type: 'buff'
+  },
+  {
+    id: 'wind-steps',
+    name: '風行身法',
+    description: '接下來 3 回合攻擊力提升 1 點、防禦力提升 2 點。',
+    duration: 3,
+    atkBonus: 1,
+    defBonus: 2,
+    type: 'buff'
+  },
+  {
+    id: 'moon-ward',
+    name: '月霧庇佑',
+    description: '接下來 4 回合，每回合結束回復 4 點生命並提升 2 點防禦。',
+    duration: 4,
+    defBonus: 2,
+    hpPerTurn: 4,
+    type: 'buff'
+  },
+  {
+    id: 'storm-heart',
+    name: '雷心戰意',
+    description: '接下來 2 回合攻擊力提升 4 點。',
+    duration: 2,
+    atkBonus: 4,
+    type: 'buff'
+  },
+  {
+    id: 'shadow-veil',
+    name: '影紗掩護',
+    description: '接下來 2 回合防禦力提升 2 點，並更易閃避攻擊。',
+    duration: 2,
+    defBonus: 2,
+    type: 'buff'
   }
 ]
 

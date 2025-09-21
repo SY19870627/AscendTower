@@ -8,6 +8,7 @@ const catalog: ShopDef[] = [
     offers: [
       { id: 'herb-single', itemId: 'healing-herb', price: 20 },
       { id: 'herb-bundle', itemId: 'healing-herb', price: 55, quantity: 3 },
+      { id: 'focus-tea', itemId: 'focus-tea', price: 40, quantity: 2 },
       { id: 'iron-ration', itemId: 'iron-ration', price: 45 }
     ]
   },
@@ -18,8 +19,20 @@ const catalog: ShopDef[] = [
     minFloor: 2,
     offers: [
       { id: 'charge-crystal', itemId: 'charge-crystal', price: 60 },
-      { id: 'refresher-pack', itemId: 'healing-herb', price: 90, quantity: 4 },
-      { id: 'storm-lunch', itemId: 'iron-ration', price: 80, quantity: 2 }
+      { id: 'ember-draught', itemId: 'ember-draught', price: 85 },
+      { id: 'mist-bomb-pack', itemId: 'mist-bomb', price: 75, quantity: 2 },
+      { id: 'refresher-pack', itemId: 'healing-herb', price: 90, quantity: 4 }
+    ]
+  },
+  {
+    id: 'moonlit-ritualist',
+    title: '月影祭司',
+    description: '身披銀紗的祭司兜售以月霜祝禱的護符與香粉。',
+    minFloor: 4,
+    offers: [
+      { id: 'lunar-talisman', itemId: 'lunar-talisman', price: 110 },
+      { id: 'shadow-pouch', itemId: 'mist-bomb', price: 90, quantity: 3 },
+      { id: 'spirit-rations', itemId: 'iron-ration', price: 95, quantity: 2 }
     ]
   }
 ]
@@ -35,4 +48,3 @@ export const shopsById = new Map(catalog.map(shop => [shop.id, shop]))
 export function getShopDef(id: string): ShopDef | undefined {
   return shopsById.get(id)
 }
-

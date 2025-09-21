@@ -30,6 +30,51 @@ export const skills: SkillDef[] = [
       message: '柔和的波流洗過全身。',
       grantStatuses: [{ id: 'regeneration' }]
     }
+  },
+  {
+    id: 'phoenix-flare',
+    name: '鳳炎迸發',
+    description: '引燃殘火，形成保護的熾羽並灼傷敵心。',
+    cooldown: 5,
+    minFloor: 3,
+    effect: {
+      message: '鳳羽環繞，灼熱護盾在你周身展開。',
+      grantStatuses: [{ id: 'ember-ward', duration: 3 }]
+    }
+  },
+  {
+    id: 'tempest-footwork',
+    name: '疾風步勢',
+    description: '以連環步伐穿梭空檔，減少來自正面的衝擊。',
+    cooldown: 4,
+    minFloor: 2,
+    effect: {
+      message: '疾風纏身，身形穿梭於風縫之間。',
+      grantStatuses: [{ id: 'wind-steps', duration: 3 }]
+    }
+  },
+  {
+    id: 'moonlit-reprise',
+    name: '月光重奏',
+    description: '以月光節奏調息，恢復傷勢並築起靈霧。',
+    cooldown: 6,
+    minFloor: 4,
+    effect: {
+      message: '月霧在你掌間流轉，身心逐漸安定。',
+      hpDelta: 10,
+      grantStatuses: [{ id: 'moon-ward', duration: 4 }]
+    }
+  },
+  {
+    id: 'thunder-echo',
+    name: '雷鳴回響',
+    description: '以鼓震之勢召喚雷音，提振攻勢。',
+    cooldown: 4,
+    minFloor: 3,
+    effect: {
+      message: '雷鳴在胸腔內激盪，你的戰意高漲。',
+      grantStatuses: [{ id: 'storm-heart', duration: 2 }]
+    }
   }
 ]
 

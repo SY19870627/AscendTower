@@ -50,6 +50,8 @@ const DEFAULT_HP = 120
 const DEFAULT_MP = 20
 const DEFAULT_COINS = 120
 const DEFAULT_SKILLS = ['battle-shout']
+const DEFAULT_WEAPON_ID = 'bare-hands'
+const DEFAULT_ARMOR_ID = 'cloth-robe'
 
 export class PlayerState {
   hasKey = false
@@ -67,6 +69,12 @@ export class PlayerState {
 
   private readonly defaults: Required<PlayerStateConfig>
 
+  private equipDefaultGear() {
+    this.weapon = getWeaponDef(DEFAULT_WEAPON_ID) ?? null
+    this.weaponCharge = 0
+    this.armor = getArmorDef(DEFAULT_ARMOR_ID) ?? null
+  }
+
   constructor(config?: PlayerStateConfig) {
     this.defaults = {
       baseHp: config?.baseHp ?? DEFAULT_HP,
@@ -76,6 +84,7 @@ export class PlayerState {
     }
     this.stats = { hp: this.defaults.baseHp, mp: this.defaults.baseMp }
     this.coins = this.defaults.startingCoins
+    this.equipDefaultGear()
   }
 
   reset() {
@@ -91,6 +100,7 @@ export class PlayerState {
     this.activeStatuses = []
     this.knownSkills = []
     this.skillCooldowns.clear()
+    this.equipDefaultGear()
     this.ensureDefaultSkills({ silent: true })
   }
 
@@ -194,6 +204,14 @@ export class PlayerState {
 
     if (!this.knownSkills.length) {
       this.ensureDefaultSkills({ silent: true })
+    }
+
+    if (!this.weapon) {
+      this.weapon = getWeaponDef(DEFAULT_WEAPON_ID) ?? null
+      this.weaponCharge = 0
+    }
+    if (!this.armor) {
+      this.armor = getArmorDef(DEFAULT_ARMOR_ID) ?? null
     }
 
     this.skillCooldowns.clear()
@@ -486,6 +504,13 @@ export class PlayerState {
     }
   }
 }
+
+
+
+
+
+
+
 
 
 
