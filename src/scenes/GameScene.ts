@@ -116,6 +116,10 @@ export class GameScene extends Phaser.Scene {
   shopOverlay!: ShopOverlay
   dialogueOverlay!: DialogueOverlay
   libraryOverlay!: LibraryOverlay
+  private jumpButtonEl?: HTMLButtonElement
+  private readonly handleJumpButtonClick = () => {
+    this.jumpToFloor(10)
+  }
   private readonly floorStates = new Map<number, FloorState>()
   private pendingEntry: 'up' | 'down' | null = null
   private pendingStartMode: 'load' | null = null
@@ -248,11 +252,58 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => handleInput(this, e.key))
     draw(this)
 
+    this.setupJumpButton()
+
     const shouldAutoLoad = this.pendingStartMode === 'load'
     this.pendingStartMode = null
     if (shouldAutoLoad) {
       this.loadGame({ silent: true })
     }
+  }
+
+  private setupJumpButton() {
+    if (typeof document === 'undefined') return
+
+    this.cleanupJumpButton()
+
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.textContent = this.floor === 10 ? '已抵達第10層' : '前往第10層'
+    button.style.position = 'fixed'
+    button.style.top = '16px'
+    button.style.right = '24px'
+    button.style.zIndex = '5000'
+    button.style.padding = '8px 16px'
+    button.style.background = this.floor === 10 ? '#2d3a3a' : '#275555'
+    button.style.color = '#fdf7df'
+    button.style.border = '1px solid #49b6a6'
+    button.style.borderRadius = '6px'
+    button.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.35)'
+    button.style.fontSize = '14px'
+    button.style.fontFamily = 'inherit'
+    button.style.cursor = this.floor === 10 ? 'default' : 'pointer'
+
+    if (this.floor !== 10) {
+      button.addEventListener('click', this.handleJumpButtonClick)
+    } else {
+      button.disabled = true
+      button.style.opacity = '0.65'
+    }
+
+    document.body.appendChild(button)
+    this.jumpButtonEl = button
+
+    this.events.once('shutdown', () => this.cleanupJumpButton())
+    this.events.once('destroy', () => this.cleanupJumpButton())
+  }
+
+  private cleanupJumpButton() {
+    const button = this.jumpButtonEl
+    if (!button) return
+
+    button.removeEventListener('click', this.handleJumpButtonClick)
+    button.remove()
+    this.jumpButtonEl = undefined
   }
 
   private loadFloorState() {
@@ -329,6 +380,37 @@ export class GameScene extends Phaser.Scene {
       const underlying = this.grid.stairsUpPos ? 'stairs_up' : this.grid.getTile(pos)
       this.grid.setPlayerPosition(pos, underlying)
     }
+  }
+
+  private jumpToFloor(targetFloor: number) {
+    if (!Number.isFinite(targetFloor)) return
+
+    const clamped = Math.max(1, Math.floor(targetFloor))
+    if (clamped === this.floor) return
+
+    if (
+      this.battleOverlay?.isActive ||
+      this.eventOverlay?.isActive ||
+      this.shopOverlay?.isActive ||
+      this.dialogueOverlay?.isActive ||
+      this.libraryOverlay?.isActive
+    ) {
+      return
+    }
+
+    const canProceed = this.advanceTurn('move')
+    if (!canProceed) return
+
+    const state = this.floorStates.get(this.floor)
+    if (state) state.lastActionMessage = this.lastActionMessage
+
+    const direction = clamped > this.floor ? 'up' : 'down'
+    const underlying = direction === 'up' ? 'stairs_up' : 'stairs_down'
+    this.grid.setTileUnderPlayer(underlying)
+    this.grid.detachPlayer()
+
+    const entry = direction === 'up' ? 'down' : 'up'
+    this.scene.restart({ floor: clamped, entry })
   }
 
   transitionFloor(direction: 'up' | 'down') {
