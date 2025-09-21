@@ -472,7 +472,7 @@ export function draw(scene: any) {
     const boxHeight = lines.length * lineHeight + boxPadding * 2
     gfx.fillStyle(0x102424, 0.8).fillRect(rightPanelX, directionY, boxWidth, boxHeight)
     gfx.lineStyle(1, 0x2c4c4c, 1).strokeRect(rightPanelX, directionY, boxWidth, boxHeight)
-    addText(scene, activeTextIds, `direction_${dir.toLowerCase()}`, rightPanelX + boxPadding, directionY + boxPadding, lines.join('\n'), {
+    addText(scene, activeTextIds, 'direction_' + dir.toLowerCase(), rightPanelX + boxPadding, directionY + boxPadding, lines.join('\n'), {
       fontSize: '14px',
       lineSpacing: 4,
       color: '#cfe'
@@ -480,7 +480,30 @@ export function draw(scene: any) {
     directionY += boxHeight + 16
   }
 
+  const instructions = [
+    '移動: WASD / 方向鍵',
+    '使用技能: Q/W/E',
+    '開啟圖鑑: L',
+    '存檔:P 讀檔:O'
+  ].join('\n')
+  addText(scene, activeTextIds, 'instructions', rightPanelX + boxPadding, directionY, instructions, {
+    fontSize: '12px',
+    lineSpacing: 2,
+    color: '#9fd'
+  })
+
   cleanupUnusedText(scene, activeTextIds)
 }
 
 export default draw
+
+
+
+
+
+
+
+
+
+
+

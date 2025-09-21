@@ -248,13 +248,6 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => handleInput(this, e.key))
     draw(this)
 
-    this.add.text(
-      this.sidebarPadding,
-      sidebarHeight - 24,
-      'WASD / 方向鍵 移動，Q/W/E 使用技能，L 開啟圖鑑，P 存檔，O 讀檔。圖例：@ 你  K 鑰匙  D 門  > 上樓梯  < 下樓梯  E 敵人  W 武器  A 防具  S 商人  N 同行者  ? 事件。',
-      { fontSize: '12px', color: '#9fd' }
-    ).setDepth(1)
-
     const shouldAutoLoad = this.pendingStartMode === 'load'
     this.pendingStartMode = null
     if (shouldAutoLoad) {
