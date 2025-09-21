@@ -1,4 +1,4 @@
-﻿import type { ShopDef } from '../core/Types'
+import type { ShopDef } from '../core/Types'
 
 const catalog: ShopDef[] = [
   {

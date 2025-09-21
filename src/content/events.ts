@@ -1,4 +1,4 @@
-﻿import type { EventDef } from '../core/Types'
+import type { EventDef } from '../core/Types'
 
 export const events: EventDef[] = [
   {

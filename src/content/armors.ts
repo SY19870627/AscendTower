@@ -1,4 +1,4 @@
-﻿import type { ArmorDef } from '../core/Types'
+import type { ArmorDef } from '../core/Types'
 
 const catalog: ArmorDef[] = [
   { id: 'cloth-robe', name: '布衣', def: 1, shield: 2, desc: '尋常衣物，幾乎沒有防護力。' },

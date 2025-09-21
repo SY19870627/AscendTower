@@ -1,4 +1,4 @@
-﻿import Phaser from 'phaser'
+import Phaser from 'phaser'
 import type { ItemDef, ShopDef, ShopOffer, Vec2 } from '../core/Types'
 import type { GameScene } from './GameScene'
 

@@ -1,4 +1,4 @@
-﻿import type { WeaponDef } from '../core/Types'
+import type { WeaponDef } from '../core/Types'
 
 const catalog: WeaponDef[] = [
   {

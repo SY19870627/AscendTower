@@ -1,4 +1,4 @@
-﻿import type { SkillDef } from '../core/Types'
+import type { SkillDef } from '../core/Types'
 
 export const skills: SkillDef[] = [
   {

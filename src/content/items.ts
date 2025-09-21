@@ -1,4 +1,4 @@
-﻿import type { ItemDef } from '../core/Types'
+import type { ItemDef } from '../core/Types'
 
 const catalog: ItemDef[] = [
   {

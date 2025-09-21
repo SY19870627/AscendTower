@@ -1,4 +1,4 @@
-﻿import type { StatusDef } from '../core/Types'
+import type { StatusDef } from '../core/Types'
 
 const catalog: StatusDef[] = [
   {

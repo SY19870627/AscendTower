@@ -1,4 +1,4 @@
-﻿import Phaser from 'phaser'
+import Phaser from 'phaser'
 import { hasSavedGame } from './GameScene'
 
 type MenuKey = 'new' | 'load' | 'story' | 'quit'
