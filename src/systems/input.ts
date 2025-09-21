@@ -1,7 +1,17 @@
-import { pickupWeapon, pickupArmor, pickupItem } from './spawning'
+﻿import { pickupWeapon, pickupArmor, pickupItem } from './spawning'
 import { draw } from './render'
 
 export function handleInput(scene: any, key: string) {
+  const lower = typeof key === 'string' ? key.toLowerCase() : ''
+  if (lower === 'p') {
+    if (typeof scene.saveGame === 'function') scene.saveGame()
+    return
+  }
+  if (lower === 'o') {
+    if (typeof scene.loadGame === 'function') scene.loadGame()
+    return
+  }
+
   if (scene.battleOverlay?.isActive) return
   if (scene.eventOverlay?.isActive) return
   if (scene.shopOverlay?.isActive) return
@@ -32,42 +42,71 @@ export function handleInput(scene: any, key: string) {
   } as any)[key]
   if (!dir) return
 
-  const np = { x: scene.grid.playerPos.x + dir.x, y: scene.grid.playerPos.y + dir.y }
-  if (!scene.grid.inBounds(np)) return
+  const nextPos = { x: scene.grid.playerPos.x + dir.x, y: scene.grid.playerPos.y + dir.y }
+  if (!scene.grid.inBounds(nextPos)) return
 
-  const t = scene.grid.tiles[np.y][np.x]
-  if (t === 'wall') return
+  const targetTile = scene.grid.getTile(nextPos)
+  if (targetTile === 'wall') return
 
-  if (t === 'enemy') {
-    scene.startBattle(np)
+  if (targetTile === 'enemy') {
+    scene.startBattle(nextPos)
     return
   }
 
-  if (t === 'door' && !scene.hasKey) {
+  if (targetTile === 'door' && !scene.hasKey) {
     scene.cameras.main.shake(80, 0.003)
     return
   }
 
-  scene.grid.tiles[scene.grid.playerPos.y][scene.grid.playerPos.x] = 'floor'
-  scene.grid.playerPos = np
-  scene.grid.tiles[np.y][np.x] = 'player'
+  const steppedOn = scene.grid.movePlayer(nextPos)
 
-  if (t === 'key') { scene.hasKey = true }
-  if (t === 'door' && scene.hasKey) { scene.grid.tiles[np.y][np.x] = 'floor' }
-  if (t === 'stairs') {
-    const continueTurn = scene.advanceTurn('move')
-    if (!continueTurn) return
-    scene.scene.restart({ floor: scene.floor + 1 })
-    return
+  switch (steppedOn) {
+    case 'key':
+      scene.hasKey = true
+      scene.grid.setTileUnderPlayer('floor')
+      break
+    case 'door':
+      scene.grid.setTileUnderPlayer('floor')
+      break
+    case 'weapon':
+      pickupWeapon(scene, nextPos)
+      scene.grid.setTileUnderPlayer('floor')
+      break
+    case 'armor':
+      pickupArmor(scene, nextPos)
+      scene.grid.setTileUnderPlayer('floor')
+      break
+    case 'item':
+      pickupItem(scene, nextPos)
+      scene.grid.setTileUnderPlayer('floor')
+      scene.syncFloorLastAction?.()
+      break
+    case 'shop':
+      scene.startShop(nextPos)
+      break
+    case 'event':
+      scene.startEvent(nextPos)
+      break
+    case 'npc':
+      scene.startNpc(nextPos)
+      break
+    case 'stairs_up':
+      scene.transitionFloor?.('up')
+      return
+    case 'stairs_down':
+      scene.transitionFloor?.('down')
+      return
+    default:
+      break
   }
-  if (t === 'weapon') { pickupWeapon(scene, np) }
-  if (t === 'armor') { pickupArmor(scene, np) }
-  if (t === 'item') { pickupItem(scene, np) }
-  if (t === 'shop') { scene.startShop(np) }
-  if (t === 'event') { scene.startEvent(np) }
 
   const continueTurn = scene.advanceTurn('move')
   if (!continueTurn) return
   draw(scene)
 }
+
+
+
+
+
 

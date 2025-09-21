@@ -1,6 +1,10 @@
 import type { Tile, Vec2 } from './Types'
 import { RNG } from './RNG'
 
+type GridOptions = {
+  includeDownstairs?: boolean
+}
+
 export class Grid {
   w: number
   h: number
@@ -8,16 +12,19 @@ export class Grid {
   rng: RNG
   keyPos!: Vec2
   doorPos!: Vec2
-  stairsPos!: Vec2
+  stairsUpPos!: Vec2
+  stairsDownPos: Vec2 | null = null
   playerPos!: Vec2
   enemyPos: Vec2[] = []
+  tileUnderPlayer: Tile = 'floor'
+  private hasPlayer = false
 
-  constructor(w = 11, h = 11, seed = 1337) {
+  constructor(w = 11, h = 11, seed = 1337, options?: GridOptions) {
     this.w = w
     this.h = h
     this.rng = new RNG(seed)
     this.tiles = Array.from({ length: h }, () => Array.from({ length: w }, () => 'floor' as Tile))
-    this.generate()
+    this.generate(options)
   }
 
   inBounds(p: Vec2) {
@@ -29,7 +36,8 @@ export class Grid {
     return (
       t === 'floor' ||
       t === 'key' ||
-      t === 'stairs' ||
+      t === 'stairs_up' ||
+      t === 'stairs_down' ||
       t === 'enemy' ||
       t === 'player' ||
       t === 'door' ||
@@ -37,11 +45,72 @@ export class Grid {
       t === 'armor' ||
       t === 'event' ||
       t === 'shop' ||
+      t === 'npc' ||
       t === 'item'
     )
   }
 
-  private generate() {
+  getTile(p: Vec2): Tile {
+    return this.tiles[p.y][p.x]
+  }
+
+  setTile(p: Vec2, tile: Tile) {
+    this.tiles[p.y][p.x] = tile
+  }
+
+  setPlayerPosition(pos: Vec2, underlying: Tile) {
+    if (this.hasPlayer) {
+      this.tiles[this.playerPos.y][this.playerPos.x] = this.tileUnderPlayer
+    }
+    this.playerPos = { x: pos.x, y: pos.y }
+    this.tileUnderPlayer = underlying
+    this.tiles[pos.y][pos.x] = 'player'
+    this.hasPlayer = true
+  }
+
+  movePlayer(pos: Vec2): Tile {
+    const target = this.tiles[pos.y][pos.x]
+    if (this.hasPlayer) {
+      this.tiles[this.playerPos.y][this.playerPos.x] = this.tileUnderPlayer
+    }
+    this.playerPos = { x: pos.x, y: pos.y }
+    this.tileUnderPlayer = target
+    this.tiles[pos.y][pos.x] = 'player'
+    this.hasPlayer = true
+    return target
+  }
+
+  detachPlayer() {
+    if (!this.hasPlayer) return
+    this.tiles[this.playerPos.y][this.playerPos.x] = this.tileUnderPlayer
+    this.hasPlayer = false
+  }
+
+  hasActivePlayer() {
+    return this.hasPlayer
+  }
+
+  setTileUnderPlayer(tile: Tile) {
+    this.tileUnderPlayer = tile
+  }
+
+  getTileUnderPlayer(): Tile {
+    return this.tileUnderPlayer
+  }
+
+  place(t: Tile) {
+    while (true) {
+      const p = { x: this.rng.int(1, this.w - 2), y: this.rng.int(1, this.h - 2) }
+      if (this.tiles[p.y][p.x] === 'floor') {
+        this.tiles[p.y][p.x] = t
+        return p
+      }
+    }
+  }
+
+  private generate(options?: GridOptions) {
+    const includeDownstairs = options?.includeDownstairs ?? false
+
     for (let y = 0; y < this.h; y++) {
       for (let x = 0; x < this.w; x++) {
         if (x === 0 || y === 0 || x === this.w - 1 || y === this.h - 1) {
@@ -56,10 +125,19 @@ export class Grid {
       this.tiles[y][x] = 'wall'
     }
 
-    this.playerPos = this.place('player')
+    if (includeDownstairs) {
+      const downPos = this.place('stairs_down')
+      this.stairsDownPos = downPos
+      this.setPlayerPosition(downPos, 'stairs_down')
+    } else {
+      this.stairsDownPos = null
+      const startPos = this.place('player')
+      this.setPlayerPosition(startPos, 'floor')
+    }
+
     this.keyPos = this.place('key')
     this.doorPos = this.place('door')
-    this.stairsPos = this.place('stairs')
+    this.stairsUpPos = this.place('stairs_up')
 
     for (let i = 0; i < 5; i++) {
       this.enemyPos.push(this.place('enemy'))
@@ -67,16 +145,9 @@ export class Grid {
 
     this.carvePath(this.playerPos, this.keyPos)
     this.carvePath(this.keyPos, this.doorPos)
-    this.carvePath(this.doorPos, this.stairsPos)
-  }
-
-  place(t: Tile) {
-    while (true) {
-      const p = { x: this.rng.int(1, this.w - 2), y: this.rng.int(1, this.h - 2) }
-      if (this.tiles[p.y][p.x] === 'floor') {
-        this.tiles[p.y][p.x] = t
-        return p
-      }
+    this.carvePath(this.doorPos, this.stairsUpPos)
+    if (this.stairsDownPos) {
+      this.carvePath(this.stairsDownPos, this.keyPos)
     }
   }
 

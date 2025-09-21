@@ -27,7 +27,8 @@ const TILE_SPRITES: Partial<Record<string, TileSpriteConfig>> = {
   player: { texture: SYMBOL_SHEET_KEY, frame: 0 },
   key: { texture: SYMBOL_SHEET_KEY, frame: 1 },
   door: { texture: SYMBOL_SHEET_KEY, frame: 2 },
-  stairs: { texture: SYMBOL_SHEET_KEY, frame: 3 },
+  stairs_up: { texture: SYMBOL_SHEET_KEY, frame: 3 },
+  stairs_down: { texture: SYMBOL_SHEET_KEY, frame: 3 },
   enemy: { texture: SYMBOL_SHEET_KEY, frame: 4 },
   weapon: { texture: SYMBOL_SHEET_KEY, frame: 5 },
   armor: { texture: SYMBOL_SHEET_KEY, frame: 6 },
@@ -122,11 +123,18 @@ function drawTileIcon(scene: any, tile: string, drawX: number, drawY: number, si
       g.strokeRect(drawX + size * 0.22, drawY + size * 0.2, size * 0.56, size * 0.6)
       break
     }
-    case 'stairs': {
+    case 'stairs_up': {
       g.fillStyle(0x7ad3b5, 0.9)
       g.fillTriangle(drawX + size * 0.3, drawY + size * 0.7, drawX + size * 0.7, drawY + size * 0.7, cx, drawY + size * 0.3)
       g.lineStyle(2, 0xffffff, 0.85)
       g.strokeTriangle(drawX + size * 0.3, drawY + size * 0.7, drawX + size * 0.7, drawY + size * 0.7, cx, drawY + size * 0.3)
+      break
+    }
+    case 'stairs_down': {
+      g.fillStyle(0x5c9bd3, 0.9)
+      g.fillTriangle(drawX + size * 0.3, drawY + size * 0.3, drawX + size * 0.7, drawY + size * 0.3, cx, drawY + size * 0.7)
+      g.lineStyle(2, 0xffffff, 0.85)
+      g.strokeTriangle(drawX + size * 0.3, drawY + size * 0.3, drawX + size * 0.7, drawY + size * 0.3, cx, drawY + size * 0.7)
       break
     }
     case 'event': {
@@ -324,8 +332,12 @@ export function draw(scene: any) {
           registerDirection(dir, scene.hasKey ? 'Door: Unlockable' : 'Door: Locked')
           break
         }
-        case 'stairs': {
-          registerDirection(dir, 'Stairs: Next floor')
+        case 'stairs_up': {
+          registerDirection(dir, 'Stairs: Upward')
+          break
+        }
+        case 'stairs_down': {
+          registerDirection(dir, 'Stairs: Downward')
           break
         }
         default:
@@ -446,6 +458,11 @@ export function draw(scene: any) {
     directionY += boxHeight + verticalGap
   })
 }
+
+
+
+
+
 
 
 

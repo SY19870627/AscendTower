@@ -1,6 +1,6 @@
 ﻿import type { WeaponDef } from '../core/Types'
 
-export const weapons: WeaponDef[] = [
+const catalog: WeaponDef[] = [
   {
     id: 'rusty-sword',
     name: 'Rusty Sword',
@@ -23,5 +23,13 @@ export const weapons: WeaponDef[] = [
     special: { name: 'Spirit Burst', damage: 22, chargeMax: 5, desc: 'Explosive qi wave that devastates foes.' },
     desc: 'Mystic charm that channels lethal qi.',
     minFloor: 3
-  },
+  }
 ]
+
+export const weapons: WeaponDef[] = catalog
+
+export const weaponsById = new Map(catalog.map(weapon => [weapon.id, weapon]))
+
+export function getWeaponDef(id: string): WeaponDef | undefined {
+  return weaponsById.get(id)
+}

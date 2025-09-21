@@ -6,7 +6,8 @@ export const COLORS = {
   key: 0xf5d142,
   event: 0xb57edc,
   door: 0xa6722a,
-  stairs: 0x7ad3b5,
+  stairs_up: 0x7ad3b5,
+  stairs_down: 0x5c9bd3,
   player: 0x89c2ff,
   enemy: 0xff6b6b,
   weapon: 0x9fe676,
@@ -20,7 +21,8 @@ export const GLYPH = {
   wall: '#',
   key: 'K',
   door: 'D',
-  stairs: '>',
+  stairs_up: '>',
+  stairs_down: '<',
   event: '?',
   player: '@',
   enemy: 'E',
@@ -29,9 +31,3 @@ export const GLYPH = {
   shop: 'S',
   item: '!',
 } as const
-
-
-
-
-
-

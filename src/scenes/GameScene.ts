@@ -1,4 +1,4 @@
-import Phaser from 'phaser'
+﻿import Phaser from 'phaser'
 import { Grid } from '../core/Grid'
 import type {
   ArmorDef,
@@ -9,23 +9,75 @@ import type {
   ItemDef,
   ShopDef,
   NpcDef,
-  SkillDef
+  SkillDef,
+  Tile
 } from '../core/Types'
-import { PlayerState, type InventoryEntry, type ActiveStatus } from '../game/player/PlayerState'
+import { PlayerState, type InventoryEntry, type ActiveStatus, type SerializedPlayerState } from '../game/player/PlayerState'
 import { handleInput } from '../systems/input'
 import { draw } from '../systems/render'
 import { spawnWeapons, spawnArmors, spawnItems, makePosKey } from '../systems/spawning'
 import { enemies } from '../content/enemies'
-import { events } from '../content/events'
-import { npcs } from '../content/npcs'
-import { getShopsForFloor } from '../content/shops'
+import { events, getEventDef } from '../content/events'
+import { npcs, getNpcDef } from '../content/npcs'
+import { getShopsForFloor, getShopDef } from '../content/shops'
 import { getItemDef } from '../content/items'
+import { getWeaponDef } from '../content/weapons'
+import { getArmorDef } from '../content/armors'
 import { BattleOverlay, type BattleInitData } from './BattleOverlay'
 import { EventOverlay, type EventResolution } from './EventOverlay'
 import { ShopOverlay, type ShopResolution, type ShopInventoryEntry } from './ShopOverlay'
 import { DialogueOverlay } from './DialogueOverlay'
 import { LibraryOverlay, type LibraryCategory } from './LibraryOverlay'
 
+type FloorState = {
+  grid: Grid
+  weaponDrops: Map<string, WeaponDef>
+  armorDrops: Map<string, ArmorDef>
+  eventNodes: Map<string, EventDef>
+  npcNodes: Map<string, NpcDef>
+  shopNodes: Map<string, ShopDef>
+  itemDrops: Map<string, ItemDef>
+  lastActionMessage: string
+}
+
+const SAVE_KEY = 'ascend-tower-save-v1'
+const SAVE_VERSION = 1
+
+type SerializedGridState = {
+  w?: number
+  h?: number
+  tiles?: Tile[][]
+  tileUnderPlayer?: Tile
+  playerPos?: Vec2
+  keyPos?: Vec2
+  doorPos?: Vec2
+  stairsUpPos?: Vec2
+  stairsDownPos?: Vec2 | null
+  enemyPos?: Vec2[]
+  hasPlayer?: boolean
+  rngState?: number
+}
+
+type SerializedFloorState = {
+  floor: number
+  grid: SerializedGridState
+  weaponDrops?: Array<[string, string]>
+  armorDrops?: Array<[string, string]>
+  itemDrops?: Array<[string, string]>
+  eventNodes?: Array<[string, string]>
+  npcNodes?: Array<[string, string]>
+  shopNodes?: Array<[string, string]>
+  lastActionMessage?: string
+}
+
+type SerializedGameState = {
+  version?: number
+  timestamp?: number
+  floor?: number
+  player?: SerializedPlayerState
+  floorStates?: SerializedFloorState[]
+  lastActionMessage?: string
+}
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -55,6 +107,8 @@ export class GameScene extends Phaser.Scene {
   shopOverlay!: ShopOverlay
   dialogueOverlay!: DialogueOverlay
   libraryOverlay!: LibraryOverlay
+  private readonly floorStates = new Map<number, FloorState>()
+  private pendingEntry: 'up' | 'down' | null = null
   private readonly playerState = new PlayerState()
 
   get hasKey(): boolean {
@@ -137,40 +191,33 @@ export class GameScene extends Phaser.Scene {
     return this.playerState.getStatusBonuses()
   }
 
-  init(data?: { floor?: number; reset?: boolean }) {
+  init(data?: { floor?: number; reset?: boolean; entry?: 'up' | 'down' }) {
     if (data?.reset) this.resetPlayerState()
     this.floor = data?.floor ?? this.floor ?? 1
+    this.pendingEntry = data?.entry ?? null
   }
 
   resetPlayerState() {
     this.playerState.reset()
-    this.itemDrops.clear()
-    this.npcNodes.clear()
-    this.shopNodes.clear()
+    this.weaponDrops = new Map<string, WeaponDef>()
+    this.armorDrops = new Map<string, ArmorDef>()
+    this.eventNodes = new Map<string, EventDef>()
+    this.npcNodes = new Map<string, NpcDef>()
+    this.shopNodes = new Map<string, ShopDef>()
+    this.itemDrops = new Map<string, ItemDef>()
+    this.floorStates.clear()
     this.lastActionMessage = ''
+    this.pendingEntry = null
+    this.syncFloorLastAction()
   }
 
   create() {
-    this.grid = new Grid(11, 11, Date.now() & 0xffff)
     this.gridOrigin = { x: this.sidebarWidth + this.sidebarPadding, y: 0 }
 
-    this.weaponDrops.clear()
-    this.armorDrops.clear()
-    this.eventNodes.clear()
-    this.npcNodes.clear()
-    this.shopNodes.clear()
-    this.itemDrops.clear()
     this.playerState.activeStatuses = []
     this.playerState.skillCooldowns.clear()
 
-    spawnWeapons(this)
-    spawnArmors(this)
-    spawnItems(this)
-    this.spawnShops()
-    this.spawnEvents()
-    this.spawnNpcs()
-    if (!this.knownSkills.length) this.learnSkill('battle-shout', { silent: true })
-    this.lastActionMessage = ''
+    this.loadFloorState()
 
     this.gfx = this.add.graphics()
     this.gfx.setDepth(0)
@@ -192,9 +239,377 @@ export class GameScene extends Phaser.Scene {
     this.add.text(
       this.sidebarPadding,
       sidebarHeight - 24,
-      'WASD/Arrow keys move. Q/W/E use skills. L opens library. Legend: @ You  K Key  D Door  > Stairs  E Enemy  W Weapon  A Armor  S Shop  N NPC  ? Event.',
+      'WASD/Arrow keys move. Q/W/E use skills. L opens library. P saves, O loads. Legend: @ You  K Key  D Door  > Up Stairs  < Down Stairs  E Enemy  W Weapon  A Armor  S Shop  N NPC  ? Event.',
       { fontSize: '12px', color: '#9fd' }
     ).setDepth(1)
+  }
+
+  private loadFloorState() {
+    const cached = this.floorStates.get(this.floor)
+    if (cached) {
+      this.grid = cached.grid
+      this.weaponDrops = cached.weaponDrops
+      this.armorDrops = cached.armorDrops
+      this.eventNodes = cached.eventNodes
+      this.npcNodes = cached.npcNodes
+      this.shopNodes = cached.shopNodes
+      this.itemDrops = cached.itemDrops
+      this.lastActionMessage = cached.lastActionMessage
+      this.syncFloorLastAction()
+      this.positionPlayerForEntry()
+      return
+    }
+
+    const seed = (Date.now() ^ (this.floor << 8)) & 0xffff
+    this.grid = new Grid(11, 11, seed, { includeDownstairs: this.floor > 1 })
+    this.weaponDrops = new Map<string, WeaponDef>()
+    this.armorDrops = new Map<string, ArmorDef>()
+    this.eventNodes = new Map<string, EventDef>()
+    this.npcNodes = new Map<string, NpcDef>()
+    this.shopNodes = new Map<string, ShopDef>()
+    this.itemDrops = new Map<string, ItemDef>()
+    this.lastActionMessage = ''
+
+    spawnWeapons(this)
+    spawnArmors(this)
+    spawnItems(this)
+    this.spawnShops()
+    this.spawnEvents()
+    this.spawnNpcs()
+    if (!this.knownSkills.length) this.learnSkill('battle-shout', { silent: true })
+
+    const state: FloorState = {
+      grid: this.grid,
+      weaponDrops: this.weaponDrops,
+      armorDrops: this.armorDrops,
+      eventNodes: this.eventNodes,
+      npcNodes: this.npcNodes,
+      shopNodes: this.shopNodes,
+      itemDrops: this.itemDrops,
+      lastActionMessage: this.lastActionMessage
+    }
+    this.floorStates.set(this.floor, state)
+    this.positionPlayerForEntry()
+  }
+
+  private positionPlayerForEntry() {
+    const entry = this.pendingEntry
+    this.pendingEntry = null
+
+    if (!entry) {
+      if (!this.grid.hasActivePlayer()) {
+        const fallback = this.grid.stairsDownPos ?? this.grid.stairsUpPos ?? this.grid.playerPos
+        const underlying =
+          fallback === this.grid.stairsDownPos ? 'stairs_down'
+            : fallback === this.grid.stairsUpPos ? 'stairs_up'
+            : this.grid.getTile(fallback)
+        this.grid.setPlayerPosition(fallback, underlying)
+      }
+      return
+    }
+
+    if (entry === 'down' && this.grid.stairsDownPos) {
+      this.grid.setPlayerPosition(this.grid.stairsDownPos, 'stairs_down')
+      return
+    }
+
+    if (entry === 'up') {
+      const pos = this.grid.stairsUpPos ?? this.grid.playerPos
+      const underlying = this.grid.stairsUpPos ? 'stairs_up' : this.grid.getTile(pos)
+      this.grid.setPlayerPosition(pos, underlying)
+    }
+  }
+
+  transitionFloor(direction: 'up' | 'down') {
+    const canProceed = this.advanceTurn('move')
+    if (!canProceed) return
+
+    const state = this.floorStates.get(this.floor)
+    if (state) state.lastActionMessage = this.lastActionMessage
+
+    const underlying = direction === 'up' ? 'stairs_up' : 'stairs_down'
+    this.grid.setTileUnderPlayer(underlying)
+    this.grid.detachPlayer()
+
+    const targetFloor = direction === 'up' ? this.floor + 1 : Math.max(1, this.floor - 1)
+    if (targetFloor === this.floor) {
+      draw(this)
+      return
+    }
+
+    const entry = direction === 'up' ? 'down' : 'up'
+    this.scene.restart({ floor: targetFloor, entry })
+  }
+
+  syncFloorLastAction() {
+    const state = this.floorStates.get(this.floor)
+    if (state) state.lastActionMessage = this.lastActionMessage
+  }
+  private snapshotGrid(grid: Grid): SerializedGridState {
+    return {
+      w: grid.w,
+      h: grid.h,
+      tiles: grid.tiles.map(row => [...row]) as Tile[][],
+      tileUnderPlayer: grid.getTileUnderPlayer(),
+      playerPos: { x: grid.playerPos.x, y: grid.playerPos.y },
+      keyPos: { x: grid.keyPos.x, y: grid.keyPos.y },
+      doorPos: { x: grid.doorPos.x, y: grid.doorPos.y },
+      stairsUpPos: { x: grid.stairsUpPos.x, y: grid.stairsUpPos.y },
+      stairsDownPos: grid.stairsDownPos ? { x: grid.stairsDownPos.x, y: grid.stairsDownPos.y } : null,
+      enemyPos: grid.enemyPos.map(pos => ({ x: pos.x, y: pos.y })),
+      rngState: grid.rng.getState(),
+      hasPlayer: grid.hasActivePlayer()
+    }
+  }
+
+  private rebuildGrid(data: SerializedGridState): Grid | null {
+    if (!data || !Array.isArray(data.tiles) || !data.tiles.length) return null
+    const tiles = data.tiles.map(row => [...row]) as Tile[][]
+    const h = tiles.length
+    const w = tiles[0]?.length ?? 0
+    if (w <= 0 || h <= 0) return null
+
+    const grid = new Grid(w, h, 0)
+    grid.detachPlayer()
+    grid.tiles = tiles
+    grid.w = w
+    grid.h = h
+
+    if (data.keyPos) grid.keyPos = { x: data.keyPos.x, y: data.keyPos.y }
+    if (data.doorPos) grid.doorPos = { x: data.doorPos.x, y: data.doorPos.y }
+    if (data.stairsUpPos) grid.stairsUpPos = { x: data.stairsUpPos.x, y: data.stairsUpPos.y }
+    grid.stairsDownPos = data.stairsDownPos ? { x: data.stairsDownPos.x, y: data.stairsDownPos.y } : null
+
+    const playerPos = data.playerPos ?? grid.playerPos
+    const tileUnder = (data.tileUnderPlayer ?? grid.getTileUnderPlayer()) as Tile
+
+    if (tiles[playerPos.y] && tiles[playerPos.y].length > playerPos.x) {
+      tiles[playerPos.y][playerPos.x] = tileUnder
+    }
+
+    grid.setPlayerPosition({ x: playerPos.x, y: playerPos.y }, tileUnder)
+
+    grid.enemyPos = Array.isArray(data.enemyPos)
+      ? data.enemyPos.map(pos => ({ x: pos.x, y: pos.y }))
+      : []
+
+    if (typeof data.rngState === 'number') {
+      grid.rng.setState(data.rngState)
+    }
+
+    return grid
+  }
+
+  private snapshotFloorState(floor: number, state: FloorState): SerializedFloorState {
+    return {
+      floor,
+      grid: this.snapshotGrid(state.grid),
+      weaponDrops: Array.from(state.weaponDrops.entries()).map(([pos, weapon]) => [pos, weapon.id]),
+      armorDrops: Array.from(state.armorDrops.entries()).map(([pos, armor]) => [pos, armor.id]),
+      itemDrops: Array.from(state.itemDrops.entries()).map(([pos, item]) => [pos, item.id]),
+      eventNodes: Array.from(state.eventNodes.entries()).map(([pos, event]) => [pos, event.id]),
+      npcNodes: Array.from(state.npcNodes.entries()).map(([pos, npc]) => [pos, npc.id]),
+      shopNodes: Array.from(state.shopNodes.entries()).map(([pos, shop]) => [pos, shop.id]),
+      lastActionMessage: state.lastActionMessage
+    }
+  }
+
+  private rebuildFloorState(data: SerializedFloorState): FloorState | null {
+    const grid = this.rebuildGrid(data.grid)
+    if (!grid) return null
+
+    const weaponDrops = new Map<string, WeaponDef>()
+    for (const [pos, id] of data.weaponDrops ?? []) {
+      const def = getWeaponDef(id)
+      if (def) weaponDrops.set(pos, def)
+    }
+
+    const armorDrops = new Map<string, ArmorDef>()
+    for (const [pos, id] of data.armorDrops ?? []) {
+      const def = getArmorDef(id)
+      if (def) armorDrops.set(pos, def)
+    }
+
+    const itemDrops = new Map<string, ItemDef>()
+    for (const [pos, id] of data.itemDrops ?? []) {
+      const def = getItemDef(id)
+      if (def) itemDrops.set(pos, def)
+    }
+
+    const eventNodes = new Map<string, EventDef>()
+    for (const [pos, id] of data.eventNodes ?? []) {
+      const def = getEventDef(id)
+      if (def) eventNodes.set(pos, def)
+    }
+
+    const npcNodes = new Map<string, NpcDef>()
+    for (const [pos, id] of data.npcNodes ?? []) {
+      const def = getNpcDef(id)
+      if (def) npcNodes.set(pos, def)
+    }
+
+    const shopNodes = new Map<string, ShopDef>()
+    for (const [pos, id] of data.shopNodes ?? []) {
+      const def = getShopDef(id)
+      if (def) shopNodes.set(pos, def)
+    }
+
+    return {
+      grid,
+      weaponDrops,
+      armorDrops,
+      eventNodes,
+      npcNodes,
+      shopNodes,
+      itemDrops,
+      lastActionMessage: data.lastActionMessage ?? ''
+    }
+  }
+
+  private serializeGameState(): SerializedGameState {
+    this.syncFloorLastAction()
+    const floorStates = Array.from(this.floorStates.entries()).map(([floor, state]) =>
+      this.snapshotFloorState(floor, state)
+    )
+    return {
+      version: SAVE_VERSION,
+      timestamp: Date.now(),
+      floor: this.floor,
+      player: this.playerState.serialize(),
+      floorStates,
+      lastActionMessage: this.lastActionMessage
+    }
+  }
+
+  private applySerializedGameState(data: SerializedGameState): boolean {
+    if (!data || typeof data !== 'object') return false
+    if (typeof data.version === 'number' && data.version > SAVE_VERSION) return false
+
+    const floorStates = new Map<number, FloorState>()
+    for (const entry of data.floorStates ?? []) {
+      const restored = this.rebuildFloorState(entry)
+      if (restored) {
+        floorStates.set(entry.floor, restored)
+      }
+    }
+
+    if (!floorStates.size) return false
+
+    this.floorStates.clear()
+    for (const [floor, state] of floorStates.entries()) {
+      this.floorStates.set(floor, state)
+    }
+
+    if (typeof data.floor === 'number' && floorStates.has(data.floor)) {
+      this.floor = data.floor
+    } else {
+      const first = floorStates.keys().next()
+      if (!first.done) {
+        this.floor = first.value
+      }
+    }
+
+    const active = this.floorStates.get(this.floor)
+    if (!active) return false
+
+    this.grid = active.grid
+    this.weaponDrops = active.weaponDrops
+    this.armorDrops = active.armorDrops
+    this.eventNodes = active.eventNodes
+    this.npcNodes = active.npcNodes
+    this.shopNodes = active.shopNodes
+    this.itemDrops = active.itemDrops
+    this.lastActionMessage = active.lastActionMessage ?? ''
+    this.pendingEntry = null
+
+    if (data.player) {
+      this.playerState.restore(data.player)
+    } else {
+      this.playerState.reset()
+    }
+
+    this.syncFloorLastAction()
+    return true
+  }
+
+  saveGame() {
+    const storage = this.getSaveStorage()
+    if (!storage) {
+      this.appendActionMessages(['Unable to access local storage for saving.'])
+      this.syncFloorLastAction()
+      draw(this)
+      return
+    }
+
+    try {
+      const payload = this.serializeGameState()
+      storage.setItem(SAVE_KEY, JSON.stringify(payload))
+      this.appendActionMessages(['Progress saved.'])
+      this.syncFloorLastAction()
+    } catch (error) {
+      console.error('[AscendTower] saveGame failed', error)
+      this.appendActionMessages(['Failed to save progress.'])
+      this.syncFloorLastAction()
+    }
+    draw(this)
+  }
+
+  loadGame() {
+    const storage = this.getSaveStorage()
+    if (!storage) {
+      this.appendActionMessages(['Unable to access local storage for loading.'])
+      this.syncFloorLastAction()
+      draw(this)
+      return
+    }
+
+    const raw = storage.getItem(SAVE_KEY)
+    if (!raw) {
+      this.appendActionMessages(['No saved game found.'])
+      this.syncFloorLastAction()
+      draw(this)
+      return
+    }
+
+    try {
+      const payload = JSON.parse(raw) as SerializedGameState
+      if (!this.applySerializedGameState(payload)) {
+        this.appendActionMessages(['Save data is incompatible.'])
+        this.syncFloorLastAction()
+        draw(this)
+        return
+      }
+
+      this.closeAllOverlays()
+      this.syncFloorLastAction()
+      this.appendActionMessages(['Progress loaded.'])
+      this.syncFloorLastAction()
+      draw(this)
+    } catch (error) {
+      console.error('[AscendTower] loadGame failed', error)
+      this.appendActionMessages(['Failed to load save data.'])
+      this.syncFloorLastAction()
+      draw(this)
+    }
+  }
+
+  private closeAllOverlays() {
+    this.battleOverlay?.close()
+    this.eventOverlay?.close()
+    this.shopOverlay?.close()
+    this.dialogueOverlay?.close()
+    if (this.libraryOverlay?.isActive) {
+      this.libraryOverlay.close()
+    }
+  }
+
+  private getSaveStorage(): Storage | null {
+    if (typeof window === 'undefined') return null
+    try {
+      return window.localStorage
+    } catch {
+      return null
+    }
   }
 
   private spawnShops() {
@@ -292,6 +707,9 @@ export class GameScene extends Phaser.Scene {
     if (this.grid.tiles[pos.y][pos.x] === 'npc') {
       this.grid.tiles[pos.y][pos.x] = 'floor'
     }
+    if (this.grid.playerPos.x === pos.x && this.grid.playerPos.y === pos.y) {
+      this.grid.setTileUnderPlayer('floor')
+    }
     const lines: string[] = []
     if (npc.postMessage) lines.push(npc.postMessage)
     if (npc.outcome) {
@@ -302,6 +720,7 @@ export class GameScene extends Phaser.Scene {
       lines.push(`${npc.name} nods appreciatively.`)
     }
     this.appendActionMessages(lines)
+    this.syncFloorLastAction()
     draw(this)
   }
   acquireWeapon(weapon: WeaponDef, options?: { silent?: boolean }): string[] {
@@ -344,6 +763,7 @@ export class GameScene extends Phaser.Scene {
       lines.push(`Stored ${before.name} in the armory.`)
     }
     this.appendActionMessages(lines)
+    this.syncFloorLastAction()
     draw(this)
     return { success: true, message: lines[0] }
   }
@@ -362,6 +782,7 @@ export class GameScene extends Phaser.Scene {
       lines.push(`Stored ${before.name} in the armory.`)
     }
     this.appendActionMessages(lines)
+    this.syncFloorLastAction()
     draw(this)
     return { success: true, message: lines[0] }
   }
@@ -424,6 +845,7 @@ export class GameScene extends Phaser.Scene {
   applyEventOutcome(outcome: EventOutcome): string {
     const { message } = this.playerState.applyEventOutcome(outcome)
     this.lastActionMessage = message
+    this.syncFloorLastAction()
     this.cameras.main.flash(90, 120, 220, 255)
     draw(this)
     return message
@@ -458,16 +880,12 @@ export class GameScene extends Phaser.Scene {
 
   finishBattle(outcome: { enemyPos: Vec2; remainingHp: number; weaponCharge: number }) {
     const { enemyPos, remainingHp, weaponCharge } = outcome
-    const prev = { ...this.grid.playerPos }
-
     this.playerStats.hp = Math.max(Math.floor(remainingHp), 0)
     this.weaponCharge = Math.max(weaponCharge, 0)
 
-    this.grid.tiles[prev.y][prev.x] = 'floor'
-    this.grid.playerPos = { x: enemyPos.x, y: enemyPos.y }
-    this.grid.tiles[enemyPos.y][enemyPos.x] = 'player'
+    this.grid.movePlayer(enemyPos)
     this.grid.enemyPos = this.grid.enemyPos.filter(p => p.x !== enemyPos.x || p.y !== enemyPos.y)
-
+    this.grid.setTileUnderPlayer('floor')
     this.cameras.main.flash(120, 80, 200, 255)
     draw(this)
   }
@@ -493,7 +911,9 @@ export class GameScene extends Phaser.Scene {
     const details = `Coins: ${before} -> ${this.coins}`
     this.appendActionMessages([summary, gainMessage, details])
     draw(this)
-    return { success: true, message: `${summary}\n${gainMessage}\n${details}`, coins: this.coins }
+    return { success: true, message: `${summary}
+${gainMessage}
+${details}`, coins: this.coins }
   }
 
   completeEvent(pos: Vec2, _resolution: EventResolution) {
@@ -502,6 +922,9 @@ export class GameScene extends Phaser.Scene {
 
     if (this.grid.tiles[pos.y][pos.x] === 'event') {
       this.grid.tiles[pos.y][pos.x] = 'floor'
+    }
+    if (this.grid.playerPos.x === pos.x && this.grid.playerPos.y === pos.y) {
+      this.grid.setTileUnderPlayer('floor')
     }
 
     draw(this)
@@ -513,6 +936,9 @@ export class GameScene extends Phaser.Scene {
 
     if (this.grid.tiles[pos.y][pos.x] === 'shop') {
       this.grid.tiles[pos.y][pos.x] = 'floor'
+    }
+    if (this.grid.playerPos.x === pos.x && this.grid.playerPos.y === pos.y) {
+      this.grid.setTileUnderPlayer('floor')
     }
 
     draw(this)
@@ -550,6 +976,41 @@ export class GameScene extends Phaser.Scene {
 }
 
 export default GameScene
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

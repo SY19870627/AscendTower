@@ -4,7 +4,8 @@ export type Tile =
   | 'wall'
   | 'key'
   | 'door'
-  | 'stairs'
+  | 'stairs_up'
+  | 'stairs_down'
   | 'enemy'
   | 'player'
   | 'weapon'
@@ -112,4 +113,5 @@ export interface NpcDef {
   outcome?: EventOutcome
   minFloor?: number
 }
+
 

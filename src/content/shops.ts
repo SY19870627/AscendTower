@@ -29,3 +29,10 @@ export const shops: ShopDef[] = catalog
 export function getShopsForFloor(floor: number): ShopDef[] {
   return catalog.filter(def => (def.minFloor ?? 1) <= floor)
 }
+
+export const shopsById = new Map(catalog.map(shop => [shop.id, shop]))
+
+export function getShopDef(id: string): ShopDef | undefined {
+  return shopsById.get(id)
+}
+

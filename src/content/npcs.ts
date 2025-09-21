@@ -64,3 +64,10 @@ export const npcs: NpcDef[] = [
     }
   }
 ]
+
+export const npcsById = new Map(npcs.map(npc => [npc.id, npc]))
+
+export function getNpcDef(id: string): NpcDef | undefined {
+  return npcsById.get(id)
+}
+

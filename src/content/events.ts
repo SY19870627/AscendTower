@@ -141,3 +141,10 @@ export const events: EventDef[] = [
     ]
   }
 ]
+
+export const eventsById = new Map(events.map(event => [event.id, event]))
+
+export function getEventDef(id: string): EventDef | undefined {
+  return eventsById.get(id)
+}
+

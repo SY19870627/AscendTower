@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   ArmorDef,
   EventOutcome,
   ItemDef,
@@ -10,9 +10,29 @@ import type {
 import { getItemDef } from '../../content/items'
 import { getStatusDef } from '../../content/statuses'
 import { getSkillDef, skills } from '../../content/skills'
+import { getWeaponDef } from '../../content/weapons'
+import { getArmorDef } from '../../content/armors'
 
 export type InventoryEntry = { def: ItemDef; quantity: number }
 export type ActiveStatus = { def: StatusDef; remaining: number }
+
+export type SerializedInventoryEntry = { id?: string; quantity?: number }
+export type SerializedStatusEntry = { id?: string; remaining?: number }
+export type SerializedPlayerState = {
+  hasKey?: boolean
+  stats?: { hp?: number; mp?: number }
+  weaponId?: string | null
+  armorId?: string | null
+  weaponCharge?: number
+  weaponStash?: string[]
+  armorStash?: string[]
+  coins?: number
+  inventory?: SerializedInventoryEntry[]
+  activeStatuses?: SerializedStatusEntry[]
+  knownSkills?: string[]
+  skillCooldowns?: [string, number][]
+}
+
 
 type ApplyOutcomeResult = {
   message: string
@@ -89,6 +109,105 @@ export class PlayerState {
       },
       { atk: 0, def: 0 }
     )
+  }
+
+  serialize(): SerializedPlayerState {
+    return {
+      hasKey: this.hasKey,
+      stats: { hp: this.stats.hp, mp: this.stats.mp },
+      weaponId: this.weapon?.id ?? null,
+      armorId: this.armor?.id ?? null,
+      weaponCharge: Math.max(0, Math.floor(this.weaponCharge)),
+      weaponStash: this.weaponStash.map(weapon => weapon.id),
+      armorStash: this.armorStash.map(armor => armor.id),
+      coins: Math.max(0, Math.floor(this.coins)),
+      inventory: this.inventory.map(entry => ({
+        id: entry.def.id,
+        quantity: Math.max(1, Math.floor(entry.quantity))
+      })),
+      activeStatuses: this.activeStatuses.map(status => ({
+        id: status.def.id,
+        remaining: Math.max(1, Math.floor(status.remaining))
+      })),
+      knownSkills: this.knownSkills.map(skill => skill.id),
+      skillCooldowns: Array.from(this.skillCooldowns.entries()).map(([id, value]) => [
+        id,
+        Math.max(0, Math.floor(value))
+      ])
+    }
+  }
+
+  restore(state: SerializedPlayerState) {
+    this.hasKey = !!state.hasKey
+    const hp = Math.max(0, Math.floor(state.stats?.hp ?? this.defaults.baseHp))
+    const mp = Math.max(0, Math.floor(state.stats?.mp ?? this.defaults.baseMp))
+    this.stats = { hp, mp }
+
+    this.weapon = state.weaponId ? getWeaponDef(state.weaponId) ?? null : null
+    this.weaponCharge = Math.max(0, Math.floor(state.weaponCharge ?? 0))
+    if (this.weapon?.special?.chargeMax) {
+      this.weaponCharge = Math.min(this.weaponCharge, this.weapon.special.chargeMax)
+    } else if (!this.weapon) {
+      this.weaponCharge = 0
+    }
+
+    this.armor = state.armorId ? getArmorDef(state.armorId) ?? null : null
+
+    const weaponStashIds = Array.isArray(state.weaponStash) ? state.weaponStash : []
+    this.weaponStash = weaponStashIds
+      .map(id => getWeaponDef(id) ?? null)
+      .filter((def): def is WeaponDef => def !== null)
+
+    const armorStashIds = Array.isArray(state.armorStash) ? state.armorStash : []
+    this.armorStash = armorStashIds
+      .map(id => getArmorDef(id) ?? null)
+      .filter((def): def is ArmorDef => def !== null)
+
+    this.coins = Math.max(0, Math.floor(state.coins ?? this.defaults.startingCoins))
+
+    const inventoryEntries = Array.isArray(state.inventory) ? state.inventory : []
+    this.inventory = inventoryEntries
+      .map(entry => {
+        if (!entry?.id) return null
+        const def = getItemDef(entry.id)
+        if (!def) return null
+        const quantity = Math.max(1, Math.floor(entry.quantity ?? 1))
+        return { def, quantity }
+      })
+      .filter((entry): entry is InventoryEntry => entry !== null)
+
+    const statusEntries = Array.isArray(state.activeStatuses) ? state.activeStatuses : []
+    this.activeStatuses = statusEntries
+      .map(entry => {
+        if (!entry?.id) return null
+        const def = getStatusDef(entry.id)
+        if (!def) return null
+        const remaining = Math.max(1, Math.floor(entry.remaining ?? def.duration ?? 1))
+        return { def, remaining }
+      })
+      .filter((entry): entry is ActiveStatus => entry !== null)
+
+    const skillIds = Array.isArray(state.knownSkills) ? state.knownSkills : []
+    this.knownSkills = skillIds
+      .map(id => getSkillDef(id) ?? skills.find(skill => skill.id === id) ?? null)
+      .filter((def): def is SkillDef => def !== null)
+
+    if (!this.knownSkills.length) {
+      this.ensureDefaultSkills({ silent: true })
+    }
+
+    this.skillCooldowns.clear()
+    const cooldownEntries = Array.isArray(state.skillCooldowns) ? state.skillCooldowns : []
+    for (const [id, value] of cooldownEntries) {
+      if (typeof id !== 'string') continue
+      const cooldown = Math.max(0, Math.floor(value ?? 0))
+      this.skillCooldowns.set(id, cooldown)
+    }
+    for (const skill of this.knownSkills) {
+      if (!this.skillCooldowns.has(skill.id)) {
+        this.skillCooldowns.set(skill.id, 0)
+      }
+    }
   }
 
   addItemToInventory(item: ItemDef, quantity = 1): string {
@@ -367,3 +486,7 @@ export class PlayerState {
     }
   }
 }
+
+
+
+

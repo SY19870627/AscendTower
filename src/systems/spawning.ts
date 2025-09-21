@@ -79,4 +79,7 @@ export function pickupItem(scene: any, pos: Vec2) {
   scene.itemDrops.delete(key)
   scene.cameras.main.flash(120, 200, 140, 255)
   scene.lastActionMessage = message
+  scene.syncFloorLastAction?.()
 }
+
+
