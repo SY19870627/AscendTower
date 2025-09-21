@@ -1,4 +1,4 @@
-import type { EventDef } from '../core/Types'
+﻿import type { EventDef } from '../core/Types'
 
 export const events: EventDef[] = [
   {
@@ -21,7 +21,8 @@ export const events: EventDef[] = [
         outcome: {
           message: 'Your weapon hums as the water courses over it, yet the power strains your body.',
           hpDelta: -10,
-          weaponChargeDelta: 2
+          weaponChargeDelta: 2,
+          grantStatuses: [{ id: 'battle-focus' }]
         }
       },
       {
@@ -29,6 +30,7 @@ export const events: EventDef[] = [
         label: 'Harvest healing moss',
         outcome: {
           message: 'You gather a bundle of glowing moss that smells of rain and earth.',
+          grantStatuses: [{ id: 'regeneration' }],
           grantItems: [{ id: 'healing-herb', quantity: 1 }]
         }
       }
@@ -56,7 +58,9 @@ export const events: EventDef[] = [
         outcome: {
           message: 'You score your palm and press it to the stone. A whisper sharpens your weapon arm.',
           hpDelta: -5,
-          weaponChargeDelta: 1
+          weaponChargeDelta: 1,
+          grantStatuses: [{ id: 'stone-skin' }],
+          grantSkills: ["stone-ward"]
         }
       },
       {
@@ -83,7 +87,8 @@ export const events: EventDef[] = [
         outcome: {
           message: 'The chains snap, but the effort leaves you drained.',
           hpDelta: -20,
-          weaponChargeDelta: 3
+          weaponChargeDelta: 3,
+          grantStatuses: [{ id: 'poisoned' }]
         }
       },
       {
@@ -129,13 +134,10 @@ export const events: EventDef[] = [
         outcome: {
           message: 'A note tucked in the pack teaches you routes through the tower. You feel steadier and spot a forgotten coin purse.',
           hpDelta: 10,
-          coinDelta: 25
+          coinDelta: 25,
+          grantSkills: ["renewing-wave"]
         }
       }
     ]
   }
 ]
-
-
-
-

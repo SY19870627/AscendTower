@@ -1,11 +1,17 @@
-import { TILE, COLORS, GLYPH } from '../content/tilesets'
+﻿import { TILE, COLORS, GLYPH } from '../content/tilesets'
+import type { SkillDef } from '../core/Types'
 import { enemies } from '../content/enemies'
 import { simulateCombat, getEffectiveCombatStats, describeDirection } from './combat'
+
+const SKILL_HOTKEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U']
 
 export function addTextOnce(scene: any, id: string, x: number, y: number, text: string, color: string) {
   const key = `txt_${id}`
   const existing = scene.children.getByName(key) as Phaser.GameObjects.Text | undefined
-  if (existing) { existing.setText(text).setPosition(x, y).setColor(color).setDepth(1); return existing }
+  if (existing) {
+    existing.setText(text).setPosition(x, y).setColor(color).setDepth(1)
+    return existing
+  }
   const t = scene.add.text(x, y, text, { fontSize: '14px', color }).setName(key).setDepth(1)
   return t
 }
@@ -123,24 +129,24 @@ export function draw(scene: any) {
         }
       }
 
-        if (t === 'shop') {
-          const shop = scene.shopNodes?.get(`${x},${y}`)
-          if (shop) {
-            const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
-            if (adj) {
-              const dx = x - scene.grid.playerPos.x
-              const dy = y - scene.grid.playerPos.y
-              const dirLabel = describeDirection(dx, dy)
-              const lines = [
-                `Shop(${dirLabel}): ${shop.title}`,
-                shop.description
-              ]
-              shopInfoBlocks.push(lines.join('\\n'))
-            }
+      if (t === 'shop') {
+        const shop = scene.shopNodes?.get(`${x},${y}`)
+        if (shop) {
+          const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
+          if (adj) {
+            const dx = x - scene.grid.playerPos.x
+            const dy = y - scene.grid.playerPos.y
+            const dirLabel = describeDirection(dx, dy)
+            const lines = [
+              `Shop(${dirLabel}): ${shop.title}`,
+              shop.description
+            ]
+            shopInfoBlocks.push(lines.join('\n'))
           }
         }
+      }
 
-        if (t === 'event') {
+      if (t === 'event') {
         const event = scene.eventNodes?.get(`${x},${y}`)
         if (event) {
           const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
@@ -156,8 +162,24 @@ export function draw(scene: any) {
           }
         }
       }
-    }
 
+      if (t === 'item') {
+        const item = scene.itemDrops?.get(`${x},${y}`)
+        if (item) {
+          const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
+          if (adj) {
+            const dx = x - scene.grid.playerPos.x
+            const dy = y - scene.grid.playerPos.y
+            const dirLabel = describeDirection(dx, dy)
+            const lines = [
+              `Item(${dirLabel}): ${item.name}`,
+              item.description ?? item.effect.message
+            ]
+            itemInfoBlocks.push(lines.join('\n'))
+          }
+        }
+      }
+    }
   }
 
   const enemyInfoText = enemyInfoBlocks.length
@@ -185,9 +207,9 @@ export function draw(scene: any) {
   const eventInfoColor = eventInfoBlocks.length ? '#ffe9a6' : '#888'
 
   const shopInfoText = shopInfoBlocks.length
-    ? shopInfoBlocks.join('\\n\\n')
+    ? shopInfoBlocks.join('\n\n')
     : 'Shops nearby: none'
-  const shopInfoColor = shopInfoBlocks.length ? '#ffb347' : '#888'
+  const shopInfoColor = shopInfoBlocks.length ? '#ffd27f' : '#888'
 
   const itemInfoText = itemInfoBlocks.length
     ? itemInfoBlocks.join('\n\n')
@@ -205,7 +227,7 @@ export function draw(scene: any) {
     `COINS ${scene.coins}`,
     `WEAPON ${scene.playerWeapon ? scene.playerWeapon.name : 'None'}`,
     `ARMOR ${scene.playerArmor ? scene.playerArmor.name : 'None'}`,
-    `ITEMS ${totalItems}`,
+    `ITEMS ${totalItems}`
   ]
   if (scene.playerWeapon) {
     const special = scene.playerWeapon.special
@@ -231,21 +253,36 @@ export function draw(scene: any) {
   addTextOnce(scene, 'ui', sidebarX, currentY, statsText, '#ffffff')
   currentY += statsText.split('\n').length * lineHeight + sectionGap
 
-  const legendText = [
-    'Legend:',
-    '@ You',
-    'K Key',
-    'D Door',
-    '> Stairs',
-    'E Enemy',
-    'W Weapon',
-    'A Armor',
-    'S Shop',
-    '! Item',
-    '? Event'
-  ].join('\n')
-  addTextOnce(scene, 'legend', sidebarX, currentY, legendText, '#9fd')
-  currentY += legendText.split('\n').length * lineHeight + sectionGap
+  const statusLinesRaw = (scene.activeStatuses ?? []).map((entry: { def: any; remaining: number }) => {
+    const effectBits: string[] = []
+    if (entry.def?.atkBonus) effectBits.push(`ATK ${entry.def.atkBonus >= 0 ? '+' : ''}${entry.def.atkBonus}`)
+    if (entry.def?.defBonus) effectBits.push(`DEF ${entry.def.defBonus >= 0 ? '+' : ''}${entry.def.defBonus}`)
+    if (entry.def?.hpPerTurn) effectBits.push(`HP ${entry.def.hpPerTurn >= 0 ? '+' : ''}${entry.def.hpPerTurn}/turn`)
+    const effectSummary = effectBits.length ? ` [${effectBits.join(', ')}]` : ''
+    return `${entry.def.name} (${entry.remaining})${effectSummary}`
+  })
+  const statusHeader = 'Statuses:'
+  const statusText = statusLinesRaw.length ? [statusHeader, ...statusLinesRaw].join('\n') : `${statusHeader} none`
+  const statusColor = statusLinesRaw.length
+    ? (scene.activeStatuses.some((entry: { def: any }) => entry.def.type === 'debuff') ? '#f9a6a6' : '#cfe')
+    : '#888'
+  addTextOnce(scene, 'status_info', sidebarX, currentY, statusText, statusColor)
+  currentY += Math.max(statusText.split('\n').length, 1) * lineHeight + sectionGap
+
+  const knownSkills: SkillDef[] = scene.knownSkills ?? []
+  const skillLines = knownSkills.map((skill, idx) => {
+    const hotkey = SKILL_HOTKEYS[idx] ?? `#${idx + 1}`
+    const cooldown = typeof scene.getSkillCooldown === 'function'
+      ? scene.getSkillCooldown(skill.id)
+      : (scene.skillCooldowns?.get(skill.id) ?? 0)
+    const state = cooldown > 0 ? `CD ${cooldown}` : 'READY'
+    return `${hotkey} ${skill.name} (${state})`
+  })
+  const skillHeader = 'Skills:'
+  const skillText = skillLines.length ? [skillHeader, ...skillLines].join('\n') : `${skillHeader} none`
+  const skillColor = skillLines.some(line => line.includes('CD')) ? '#ffd27f' : '#cfe'
+  addTextOnce(scene, 'skill_info', sidebarX, currentY, skillText, skillColor)
+  currentY += Math.max(skillText.split('\n').length, 1) * lineHeight + sectionGap
 
   const enemyLinesCount = Math.max(enemyInfoText.split('\n').length, 1)
   addTextOnce(scene, 'enemy_info', sidebarX, currentY, enemyInfoText, enemyInfoColor)
@@ -263,13 +300,14 @@ export function draw(scene: any) {
   addTextOnce(scene, 'event_info', sidebarX, currentY, eventInfoText, eventInfoColor)
   currentY += eventLinesCount * lineHeight + sectionGap
 
-  const shopLinesCount = Math.max(shopInfoText.split('\\n').length, 1)
+  const shopLinesCount = Math.max(shopInfoText.split('\n').length, 1)
   addTextOnce(scene, 'shop_info', sidebarX, currentY, shopInfoText, shopInfoColor)
   currentY += shopLinesCount * lineHeight + sectionGap
 
-  const itemLinesCount = Math.max(itemInfoText.split('\\n').length, 1)
+  const itemLinesCount = Math.max(itemInfoText.split('\n').length, 1)
   addTextOnce(scene, 'item_info', sidebarX, currentY, itemInfoText, itemInfoColor)
   currentY += itemLinesCount * lineHeight + sectionGap
+
   const inventoryStacks: any[] = scene.inventory ?? []
   const inventoryLines = inventoryStacks.length
     ? inventoryStacks.map((stack: any, idx: number) => {
@@ -291,37 +329,3 @@ export function draw(scene: any) {
   addTextOnce(scene, 'last_action', sidebarX, currentY, lastActionText, '#ffe9a6')
   currentY += actionLinesCount * lineHeight + sectionGap
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

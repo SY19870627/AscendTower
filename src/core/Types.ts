@@ -18,6 +18,31 @@ export interface WeaponDef { id: string; name: string; atk: number; special: Wea
 export interface ArmorDef { id: string; name: string; def: number; shield?: number; desc?: string; minFloor?: number }
 export interface PlayerStats { hp: number; mp: number }
 export interface ItemGrant { id: string; quantity?: number }
+export interface StatusDef {
+  id: string
+  name: string
+  description: string
+  duration: number
+  atkBonus?: number
+  defBonus?: number
+  hpPerTurn?: number
+  type?: 'buff' | 'debuff'
+}
+
+export interface StatusGrant {
+  id: string
+  duration?: number
+}
+
+export interface SkillDef {
+  id: string
+  name: string
+  description: string
+  cooldown: number
+  effect: EventOutcome
+  minFloor?: number
+}
+
 export interface ItemDef {
   id: string
   name: string
@@ -44,6 +69,8 @@ export interface EventOutcome {
   giveKey?: boolean
   grantItems?: ItemGrant[]
   coinDelta?: number
+  grantStatuses?: StatusGrant[]
+  grantSkills?: string[]
 }
 
 export interface EventOption {

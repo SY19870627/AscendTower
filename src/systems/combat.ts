@@ -1,4 +1,4 @@
-import type { EnemyDef } from '../core/Types'
+﻿import type { EnemyDef } from '../core/Types'
 
 export type CombatOutcome = {
   canWin: boolean
@@ -10,10 +10,10 @@ export type CombatOutcome = {
   shieldRemaining: number
 }
 
-// 依目前裝備計算有效 ATK/DEF（維持你原本的規則）
 export function getEffectiveCombatStats(scene: any) {
-  const weaponAtk = scene.playerWeapon?.atk ?? 0
-  const armorDef = scene.playerArmor?.def ?? 0
+  const bonuses = typeof scene.getStatusBonuses === 'function' ? scene.getStatusBonuses() : { atk: 0, def: 0 }
+  const weaponAtk = (scene.playerWeapon?.atk ?? 0) + (bonuses.atk ?? 0)
+  const armorDef = (scene.playerArmor?.def ?? 0) + (bonuses.def ?? 0)
   return { atk: weaponAtk, def: armorDef }
 }
 
@@ -29,8 +29,9 @@ export function simulateCombat(scene: any, enemy: EnemyDef): CombatOutcome {
   const special = weapon?.special
   const chargeMax = special?.chargeMax ?? 0
   let charge = special ? Math.min(scene.weaponCharge, chargeMax) : 0
-  const baseAtk = weapon?.atk ?? 0
-  const playerDef = scene.playerArmor?.def ?? 0
+  const combatStats = getEffectiveCombatStats(scene)
+  const baseAtk = combatStats.atk
+  const playerDef = combatStats.def
   const shieldMax = scene.playerArmor?.shield ?? 0
   let shieldRemaining = shieldMax
   let playerHp = scene.playerStats.hp
