@@ -8,6 +8,7 @@ import type {
   WeaponDef,
   ItemDef,
   ShopDef,
+  NpcDef,
   SkillDef
 } from '../core/Types'
 import { PlayerState, type InventoryEntry, type ActiveStatus } from '../game/player/PlayerState'
@@ -16,11 +17,14 @@ import { draw } from '../systems/render'
 import { spawnWeapons, spawnArmors, spawnItems, makePosKey } from '../systems/spawning'
 import { enemies } from '../content/enemies'
 import { events } from '../content/events'
+import { npcs } from '../content/npcs'
 import { getShopsForFloor } from '../content/shops'
 import { getItemDef } from '../content/items'
 import { BattleOverlay, type BattleInitData } from './BattleOverlay'
 import { EventOverlay, type EventResolution } from './EventOverlay'
 import { ShopOverlay, type ShopResolution, type ShopInventoryEntry } from './ShopOverlay'
+import { DialogueOverlay } from './DialogueOverlay'
+import { LibraryOverlay, type LibraryCategory } from './LibraryOverlay'
 
 
 export class GameScene extends Phaser.Scene {
@@ -37,12 +41,15 @@ export class GameScene extends Phaser.Scene {
   weaponDrops = new Map<string, WeaponDef>()
   armorDrops = new Map<string, ArmorDef>()
   eventNodes = new Map<string, EventDef>()
+  npcNodes = new Map<string, NpcDef>()
   shopNodes = new Map<string, ShopDef>()
   itemDrops = new Map<string, ItemDef>()
   lastActionMessage = ''
   battleOverlay!: BattleOverlay
   eventOverlay!: EventOverlay
   shopOverlay!: ShopOverlay
+  dialogueOverlay!: DialogueOverlay
+  libraryOverlay!: LibraryOverlay
   private readonly playerState = new PlayerState()
 
   get hasKey(): boolean {
@@ -87,6 +94,14 @@ export class GameScene extends Phaser.Scene {
 
   set coins(value: number) {
     this.playerState.coins = Math.max(value, 0)
+  }
+
+  get weaponStash(): WeaponDef[] {
+    return this.playerState.weaponStash
+  }
+
+  get armorStash(): ArmorDef[] {
+    return this.playerState.armorStash
   }
 
   get inventory(): InventoryEntry[] {
@@ -146,6 +161,7 @@ export class GameScene extends Phaser.Scene {
     spawnItems(this)
     this.spawnShops()
     this.spawnEvents()
+    this.spawnNpcs()
     if (!this.knownSkills.length) this.learnSkill('battle-shout', { silent: true })
     this.lastActionMessage = ''
 
@@ -160,6 +176,8 @@ export class GameScene extends Phaser.Scene {
     this.battleOverlay = new BattleOverlay(this)
     this.eventOverlay = new EventOverlay(this)
     this.shopOverlay = new ShopOverlay(this)
+    this.dialogueOverlay = new DialogueOverlay(this)
+    this.libraryOverlay = new LibraryOverlay(this)
 
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => handleInput(this, e.key))
     draw(this)
@@ -167,7 +185,7 @@ export class GameScene extends Phaser.Scene {
     this.add.text(
       this.sidebarPadding,
       sidebarHeight - 24,
-      'WASD/Arrow keys move. Q/W/E use skills. Legend: @ You  K Key  D Door  > Stairs  E Enemy  W Weapon  A Armor  S Shop  ? Event.',
+      'WASD/Arrow keys move. Q/W/E use skills. L opens library. Legend: @ You  K Key  D Door  > Stairs  E Enemy  W Weapon  A Armor  S Shop  N NPC  ? Event.',
       { fontSize: '12px', color: '#9fd' }
     ).setDepth(1)
   }
@@ -203,6 +221,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   startShop(pos: Vec2) {
+    if (this.libraryOverlay?.isActive) this.libraryOverlay.close()
     if (this.shopOverlay?.isActive) return
     const key = makePosKey(pos.x, pos.y)
     const shopDef = this.shopNodes.get(key)
@@ -226,11 +245,127 @@ export class GameScene extends Phaser.Scene {
   }
 
   startEvent(pos: Vec2) {
+    if (this.libraryOverlay?.isActive) this.libraryOverlay.close()
     if (this.eventOverlay?.isActive) return
     const key = makePosKey(pos.x, pos.y)
     const eventDef = this.eventNodes.get(key)
     if (!eventDef) return
     this.eventOverlay.open({ event: eventDef, pos })
+  }
+
+
+
+  private spawnNpcs() {
+    const available = npcs.filter(npc => (npc.minFloor ?? 1) <= this.floor)
+    if (!available.length) return
+    const pool = [...available]
+    const baseCount = Math.max(1, Math.floor(this.floor / 4) + 1)
+    const spawnCount = Math.min(baseCount, 2, pool.length)
+    for (let i = 0; i < spawnCount; i++) {
+      const pick = this.grid.rng.int(0, pool.length - 1)
+      const def = pool.splice(pick, 1)[0]
+      const pos = this.grid.place('npc')
+      this.npcNodes.set(makePosKey(pos.x, pos.y), def)
+      if (!pool.length) pool.push(...available)
+    }
+  }
+
+  startNpc(pos: Vec2) {
+    if (this.dialogueOverlay?.isActive) return
+    const key = makePosKey(pos.x, pos.y)
+    const npcDef = this.npcNodes.get(key)
+    if (!npcDef) return
+    this.dialogueOverlay.open({ npc: npcDef, pos })
+  }
+
+  resolveNpcInteraction(payload: { npc: NpcDef; pos: Vec2 }) {
+    const { npc, pos } = payload
+    const key = makePosKey(pos.x, pos.y)
+    this.npcNodes.delete(key)
+    if (this.grid.tiles[pos.y][pos.x] === 'npc') {
+      this.grid.tiles[pos.y][pos.x] = 'floor'
+    }
+    const lines: string[] = []
+    if (npc.postMessage) lines.push(npc.postMessage)
+    if (npc.outcome) {
+      const outcomeMessage = this.applyEventOutcome(npc.outcome)
+      lines.push(outcomeMessage)
+    }
+    if (!lines.length) {
+      lines.push(`${npc.name} nods appreciatively.`)
+    }
+    this.appendActionMessages(lines)
+    draw(this)
+  }
+  acquireWeapon(weapon: WeaponDef, options?: { silent?: boolean }): string[] {
+    const result = this.playerState.acquireWeapon(weapon)
+    const lines = [`Equipped weapon: ${weapon.name}`]
+    if (result.replaced && result.replaced.id !== weapon.id) {
+      lines.push(`Stored ${result.replaced.name} in the armory.`)
+    }
+    if (!options?.silent) {
+      this.appendActionMessages(lines)
+    }
+    draw(this)
+    return lines
+  }
+
+  acquireArmor(armor: ArmorDef, options?: { silent?: boolean }): string[] {
+    const result = this.playerState.acquireArmor(armor)
+    const lines = [`Equipped armor: ${armor.name}`]
+    if (result.replaced && result.replaced.id !== armor.id) {
+      lines.push(`Stored ${result.replaced.name} in the armory.`)
+    }
+    if (!options?.silent) {
+      this.appendActionMessages(lines)
+    }
+    draw(this)
+    return lines
+  }
+
+  equipWeaponFromLibrary(index: number): { success: boolean; message: string } {
+    const before = this.playerWeapon
+    const weapon = this.playerState.equipWeaponByIndex(index)
+    if (!weapon) {
+      const message = "No weapon available in that slot."
+      this.appendActionMessages([message])
+      draw(this)
+      return { success: false, message }
+    }
+    const lines = [`Equipped weapon: ${weapon.name}`]
+    if (before && before.id !== weapon.id) {
+      lines.push(`Stored ${before.name} in the armory.`)
+    }
+    this.appendActionMessages(lines)
+    draw(this)
+    return { success: true, message: lines[0] }
+  }
+
+  equipArmorFromLibrary(index: number): { success: boolean; message: string } {
+    const before = this.playerArmor
+    const armor = this.playerState.equipArmorByIndex(index)
+    if (!armor) {
+      const message = "No armor available in that slot."
+      this.appendActionMessages([message])
+      draw(this)
+      return { success: false, message }
+    }
+    const lines = [`Equipped armor: ${armor.name}`]
+    if (before && before.id !== armor.id) {
+      lines.push(`Stored ${before.name} in the armory.`)
+    }
+    this.appendActionMessages(lines)
+    draw(this)
+    return { success: true, message: lines[0] }
+  }
+
+  toggleLibrary(category?: LibraryCategory) {
+    if (!this.libraryOverlay) return
+    if (this.libraryOverlay.isActive) {
+      this.libraryOverlay.close()
+    } else {
+      this.libraryOverlay.open({ category })
+    }
   }
 
   addItemToInventory(item: ItemDef, quantity = 1, options?: { silent?: boolean }): string {
@@ -280,6 +415,7 @@ export class GameScene extends Phaser.Scene {
     return message
   }
   startBattle(enemyPos: Vec2) {
+    if (this.libraryOverlay?.isActive) this.libraryOverlay.close()
     if (this.eventOverlay?.isActive) return
     if (this.shopOverlay?.isActive) return
     if (this.battleOverlay?.isActive) return
@@ -400,6 +536,17 @@ export class GameScene extends Phaser.Scene {
 }
 
 export default GameScene
+
+
+
+
+
+
+
+
+
+
+
 
 
 

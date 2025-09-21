@@ -1,4 +1,4 @@
-﻿import type { Tile, Vec2 } from './Types'
+import type { Tile, Vec2 } from './Types'
 import { RNG } from './RNG'
 
 export class Grid {
@@ -98,3 +98,4 @@ export class Grid {
     }
   }
 }
+

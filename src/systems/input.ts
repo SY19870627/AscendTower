@@ -1,10 +1,23 @@
-﻿import { pickupWeapon, pickupArmor, pickupItem } from './spawning'
+import { pickupWeapon, pickupArmor, pickupItem } from './spawning'
 import { draw } from './render'
 
 export function handleInput(scene: any, key: string) {
   if (scene.battleOverlay?.isActive) return
   if (scene.eventOverlay?.isActive) return
   if (scene.shopOverlay?.isActive) return
+  if (scene.libraryOverlay?.isActive) return
+  if (key === "l" || key === "L") {
+    if (typeof scene.toggleLibrary === "function") {
+      scene.toggleLibrary()
+    } else if (scene.libraryOverlay) {
+      if (scene.libraryOverlay.isActive) {
+        scene.libraryOverlay.close()
+      } else {
+        scene.libraryOverlay.open()
+      }
+    }
+    return
+  }
   const skillMap: Record<string, number> = { q: 0, w: 1, e: 2, r: 3, t: 4, y: 5, u: 6 }
   const skillIndex = skillMap[key.toLowerCase()]
   if (typeof skillIndex === "number") {
@@ -57,3 +70,4 @@ export function handleInput(scene: any, key: string) {
   if (!continueTurn) return
   draw(scene)
 }
+

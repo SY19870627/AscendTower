@@ -1,4 +1,4 @@
-﻿import { weapons } from '../content/weapons'
+import { weapons } from '../content/weapons'
 import { armors } from '../content/armors'
 import { items } from '../content/items'
 import type { Vec2, WeaponDef, ArmorDef, ItemDef } from '../core/Types'
@@ -35,8 +35,12 @@ export function pickupWeapon(scene: any, pos: Vec2) {
   const key = makePosKey(pos.x, pos.y)
   const weapon: WeaponDef | undefined = scene.weaponDrops.get(key)
   if (!weapon) return
-  scene.playerWeapon = weapon
-  scene.weaponCharge = 0
+  if (typeof scene.acquireWeapon === 'function') {
+    scene.acquireWeapon(weapon)
+  } else {
+    scene.playerWeapon = weapon
+    scene.weaponCharge = 0
+  }
   scene.weaponDrops.delete(key)
   scene.cameras.main.flash(120, 80, 180, 255)
 }
@@ -45,7 +49,11 @@ export function pickupArmor(scene: any, pos: Vec2) {
   const key = makePosKey(pos.x, pos.y)
   const armor: ArmorDef | undefined = scene.armorDrops.get(key)
   if (!armor) return
-  scene.playerArmor = armor
+  if (typeof scene.acquireArmor === 'function') {
+    scene.acquireArmor(armor)
+  } else {
+    scene.playerArmor = armor
+  }
   scene.armorDrops.delete(key)
   scene.cameras.main.flash(120, 120, 200, 255)
 }

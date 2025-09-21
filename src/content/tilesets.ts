@@ -1,4 +1,4 @@
-﻿export const TILE = { size: 64 } as const
+export const TILE = { size: 64 } as const
 
 export const COLORS = {
   floor: 0x153131,
@@ -29,6 +29,7 @@ export const GLYPH = {
   shop: 'S',
   item: '!',
 } as const
+
 
 
 

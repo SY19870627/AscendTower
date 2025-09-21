@@ -37,6 +37,8 @@ export class PlayerState {
   weapon: WeaponDef | null = null
   armor: ArmorDef | null = null
   weaponCharge = 0
+  weaponStash: WeaponDef[] = []
+  armorStash: ArmorDef[] = []
   coins = DEFAULT_COINS
   inventory: InventoryEntry[] = []
   activeStatuses: ActiveStatus[] = []
@@ -60,7 +62,9 @@ export class PlayerState {
     this.hasKey = false
     this.stats = { hp: this.defaults.baseHp, mp: this.defaults.baseMp }
     this.weapon = null
+    this.weaponStash = []
     this.armor = null
+    this.armorStash = []
     this.weaponCharge = 0
     this.coins = this.defaults.startingCoins
     this.inventory = []
@@ -118,6 +122,56 @@ export class PlayerState {
       this.inventory.splice(index, 1)
     }
     return item
+  }
+
+  private ensureWeaponStored(weapon: WeaponDef | null) {
+    if (!weapon) return
+    if (!this.weaponStash.some(entry => entry.id === weapon.id)) {
+      this.weaponStash.push(weapon)
+    }
+  }
+
+  private ensureArmorStored(armor: ArmorDef | null) {
+    if (!armor) return
+    if (!this.armorStash.some(entry => entry.id === armor.id)) {
+      this.armorStash.push(armor)
+    }
+  }
+
+  acquireWeapon(weapon: WeaponDef): { replaced?: WeaponDef | null } {
+    const previous = this.weapon
+    if (previous) this.ensureWeaponStored(previous)
+    this.weapon = weapon
+    this.weaponCharge = 0
+    this.ensureWeaponStored(weapon)
+    return { replaced: previous }
+  }
+
+  acquireArmor(armor: ArmorDef): { replaced?: ArmorDef | null } {
+    const previous = this.armor
+    if (previous) this.ensureArmorStored(previous)
+    this.armor = armor
+    this.ensureArmorStored(armor)
+    return { replaced: previous }
+  }
+
+  equipWeaponByIndex(index: number): WeaponDef | null {
+    const weapon = this.weaponStash[index]
+    if (!weapon) return null
+    const previous = this.weapon
+    if (previous && previous.id !== weapon.id) this.ensureWeaponStored(previous)
+    this.weapon = weapon
+    this.weaponCharge = 0
+    return weapon
+  }
+
+  equipArmorByIndex(index: number): ArmorDef | null {
+    const armor = this.armorStash[index]
+    if (!armor) return null
+    const previous = this.armor
+    if (previous && previous.id !== armor.id) this.ensureArmorStored(previous)
+    this.armor = armor
+    return armor
   }
 
   getSkillByIndex(index: number): SkillDef | undefined {

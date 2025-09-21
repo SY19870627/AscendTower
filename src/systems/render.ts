@@ -1,7 +1,7 @@
-﻿import { TILE, COLORS, GLYPH } from '../content/tilesets'
+import { TILE, COLORS, GLYPH } from '../content/tilesets'
 import type { SkillDef } from '../core/Types'
 import { enemies } from '../content/enemies'
-import { simulateCombat, getEffectiveCombatStats, describeDirection } from './combat'
+import { getEffectiveCombatStats, describeDirection } from './combat'
 
 const SKILL_HOTKEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U']
 
@@ -22,10 +22,11 @@ export function draw(scene: any) {
   const baseX = scene.gridOrigin.x
   const baseY = scene.gridOrigin.y
 
-  const enemyInfoBlocks: { lines: string[]; canWin: boolean }[] = []
+  const enemyInfoBlocks: string[] = []
   const weaponInfoBlocks: string[] = []
   const armorInfoBlocks: string[] = []
   const eventInfoBlocks: string[] = []
+  const npcInfoBlocks: string[] = []
   const shopInfoBlocks: string[] = []
   const itemInfoBlocks: string[] = []
   const playerCombat = getEffectiveCombatStats(scene)
@@ -52,42 +53,21 @@ export function draw(scene: any) {
       addTextOnce(scene, id, gx, gy, glyph, '#ffffff')
 
       if (t === 'enemy') {
-        const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
         const pid = `prev_${x}_${y}`
+        addTextOnce(scene, pid, drawX + 6, drawY + 4, '', '#000')
+        const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
         if (adj) {
           const e = enemies[0]
-          const prev = simulateCombat(scene, e)
           const dx = x - scene.grid.playerPos.x
           const dy = y - scene.grid.playerPos.y
           const dirLabel = describeDirection(dx, dy)
-          const txt = `${prev.canWin ? 'WIN' : 'LOSE'}:-${prev.lossHp}`
-          addTextOnce(scene, pid, drawX + 6, drawY + 4, txt, prev.canWin ? '#8ef' : '#f88')
-
           const infoLines = [
             `Enemy(${dirLabel}): ${e.name}`,
             `HP ${e.base.hp}`,
             `ATK ${e.base.atk}`,
-            `DEF ${e.base.def}`,
-            `Outcome: ${prev.canWin ? 'Win' : 'Lose'} (-${prev.lossHp} HP)`
+            `DEF ${e.base.def}`
           ]
-          const special = scene.playerWeapon?.special
-          if (special) {
-            const currentCharge = Math.min(scene.weaponCharge, special.chargeMax)
-            const projectedCharge = prev.canWin ? Math.min(prev.finalCharge ?? currentCharge, special.chargeMax) : currentCharge
-            infoLines.push(`Special uses: ${prev.specialUses ?? 0}`)
-            infoLines.push(`${prev.canWin ? 'Charge after' : 'Charge now'}: ${projectedCharge}/${special.chargeMax}`)
-          }
-          const armorShield = scene.playerArmor?.shield ?? 0
-          if (armorShield > 0) {
-            const shieldAfter = prev.canWin ? (prev.shieldRemaining ?? armorShield) : armorShield
-            const shieldClamped = Math.max(Math.min(shieldAfter, armorShield), 0)
-            infoLines.push(`Shield after: ${shieldClamped}/${armorShield}`)
-            const shieldUsed = Math.max(0, armorShield - shieldClamped)
-            if (shieldUsed > 0) infoLines.push(`Shield used: ${shieldUsed}`)
-          }
-          enemyInfoBlocks.push({ lines: infoLines, canWin: prev.canWin })
-        } else {
-          addTextOnce(scene, pid, drawX + 6, drawY + 4, '', '#000')
+          enemyInfoBlocks.push(infoLines.join('\n'))
         }
       }
 
@@ -163,6 +143,24 @@ export function draw(scene: any) {
         }
       }
 
+      if (t === 'npc') {
+        const key = `${x},${y}`
+        const npc = scene.npcNodes?.get(key)
+        const pid = `npc_${x}_${y}`
+        const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
+        if (adj && npc) {
+          const dx = x - scene.grid.playerPos.x
+          const dy = y - scene.grid.playerPos.y
+          const dirLabel = describeDirection(dx, dy)
+          const lines = [
+            `NPC(${dirLabel}): ${npc.name}`,
+            npc.postMessage ?? 'Press Enter to chat.'
+          ]
+          npcInfoBlocks.push(lines.join('\n'))
+        } else {
+          addTextOnce(scene, pid, drawX + 6, drawY + 4, '', '#000')
+        }
+      }
       if (t === 'item') {
         const item = scene.itemDrops?.get(`${x},${y}`)
         if (item) {
@@ -183,11 +181,9 @@ export function draw(scene: any) {
   }
 
   const enemyInfoText = enemyInfoBlocks.length
-    ? enemyInfoBlocks.map(block => block.lines.join('\n')).join('\n\n')
+    ? enemyInfoBlocks.join('\n\n')
     : 'Enemies nearby: none'
-  const enemyInfoColor = enemyInfoBlocks.length
-    ? (enemyInfoBlocks.some(block => !block.canWin) ? '#f88' : '#8ef')
-    : '#888'
+  const enemyInfoColor = enemyInfoBlocks.length ? '#8ef' : '#888'
 
   const weaponInfoText = weaponInfoBlocks.length
     ? weaponInfoBlocks.join('\n\n')
@@ -205,6 +201,12 @@ export function draw(scene: any) {
     ? eventInfoBlocks.join('\n\n')
     : 'Events nearby: none'
   const eventInfoColor = eventInfoBlocks.length ? '#ffe9a6' : '#888'
+
+  const npcInfoText = npcInfoBlocks.length
+    ? npcInfoBlocks.join('\n\n')
+    : 'NPCs nearby: none'
+  const npcInfoColor = npcInfoBlocks.length ? '#cfe' : '#888'
+
 
   const shopInfoText = shopInfoBlocks.length
     ? shopInfoBlocks.join('\n\n')
@@ -299,6 +301,10 @@ export function draw(scene: any) {
   const eventLinesCount = Math.max(eventInfoText.split('\n').length, 1)
   addTextOnce(scene, 'event_info', sidebarX, currentY, eventInfoText, eventInfoColor)
   currentY += eventLinesCount * lineHeight + sectionGap
+  const npcLinesCount = Math.max(npcInfoText.split('\n').length, 1)
+  addTextOnce(scene, 'npc_info', sidebarX, currentY, npcInfoText, npcInfoColor)
+  currentY += npcLinesCount * lineHeight + sectionGap
+
 
   const shopLinesCount = Math.max(shopInfoText.split('\n').length, 1)
   addTextOnce(scene, 'shop_info', sidebarX, currentY, shopInfoText, shopInfoColor)
@@ -329,3 +335,9 @@ export function draw(scene: any) {
   addTextOnce(scene, 'last_action', sidebarX, currentY, lastActionText, '#ffe9a6')
   currentY += actionLinesCount * lineHeight + sectionGap
 }
+
+
+
+
+
+

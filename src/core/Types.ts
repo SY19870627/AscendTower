@@ -1,4 +1,4 @@
-﻿export type Vec2 = { x: number; y: number }
+export type Vec2 = { x: number; y: number }
 export type Tile =
   | 'floor'
   | 'wall'
@@ -11,6 +11,7 @@ export type Tile =
   | 'armor'
   | 'event'
   | 'shop'
+  | 'npc'
   | 'item'
 export interface EnemyDef { id: string; name: string; base: { hp: number; atk: number; def: number }; mods?: string[] }
 export interface WeaponSpecial { name: string; damage: number; chargeMax: number; desc?: string }
@@ -102,3 +103,13 @@ export interface EventDef {
   minFloor?: number
   options: EventOption[]
 }
+
+export interface NpcDef {
+  id: string
+  name: string
+  lines: string[]
+  postMessage?: string
+  outcome?: EventOutcome
+  minFloor?: number
+}
+
