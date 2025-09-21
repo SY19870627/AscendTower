@@ -40,7 +40,7 @@ type FloorState = {
   lastActionMessage: string
 }
 
-const SAVE_KEY = 'ascend-tower-save-v1'
+export const SAVE_KEY = 'ascend-tower-save-v1'
 const SAVE_VERSION = 1
 
 type SerializedGridState = {
@@ -79,6 +79,15 @@ type SerializedGameState = {
   lastActionMessage?: string
 }
 
+export function hasSavedGame(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return !!window.localStorage.getItem(SAVE_KEY)
+  } catch {
+    return false
+  }
+}
+
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene')
@@ -109,6 +118,7 @@ export class GameScene extends Phaser.Scene {
   libraryOverlay!: LibraryOverlay
   private readonly floorStates = new Map<number, FloorState>()
   private pendingEntry: 'up' | 'down' | null = null
+  private pendingStartMode: 'load' | null = null
   private readonly playerState = new PlayerState()
 
   get hasKey(): boolean {
@@ -191,10 +201,11 @@ export class GameScene extends Phaser.Scene {
     return this.playerState.getStatusBonuses()
   }
 
-  init(data?: { floor?: number; reset?: boolean; entry?: 'up' | 'down' }) {
+  init(data?: { floor?: number; reset?: boolean; entry?: 'up' | 'down'; startMode?: 'load' }) {
     if (data?.reset) this.resetPlayerState()
     this.floor = data?.floor ?? this.floor ?? 1
     this.pendingEntry = data?.entry ?? null
+    this.pendingStartMode = data?.startMode === 'load' ? 'load' : null
   }
 
   resetPlayerState() {
@@ -208,6 +219,7 @@ export class GameScene extends Phaser.Scene {
     this.floorStates.clear()
     this.lastActionMessage = ''
     this.pendingEntry = null
+    this.pendingStartMode = null
     this.syncFloorLastAction()
   }
 
@@ -242,6 +254,12 @@ export class GameScene extends Phaser.Scene {
       'WASD/Arrow keys move. Q/W/E use skills. L opens library. P saves, O loads. Legend: @ You  K Key  D Door  > Up Stairs  < Down Stairs  E Enemy  W Weapon  A Armor  S Shop  N NPC  ? Event.',
       { fontSize: '12px', color: '#9fd' }
     ).setDepth(1)
+
+    const shouldAutoLoad = this.pendingStartMode === 'load'
+    this.pendingStartMode = null
+    if (shouldAutoLoad) {
+      this.loadGame({ silent: true })
+    }
   }
 
   private loadFloorState() {
@@ -554,13 +572,13 @@ export class GameScene extends Phaser.Scene {
     draw(this)
   }
 
-  loadGame() {
+  loadGame(options?: { silent?: boolean }): boolean {
     const storage = this.getSaveStorage()
     if (!storage) {
       this.appendActionMessages(['Unable to access local storage for loading.'])
       this.syncFloorLastAction()
       draw(this)
-      return
+      return false
     }
 
     const raw = storage.getItem(SAVE_KEY)
@@ -568,7 +586,7 @@ export class GameScene extends Phaser.Scene {
       this.appendActionMessages(['No saved game found.'])
       this.syncFloorLastAction()
       draw(this)
-      return
+      return false
     }
 
     try {
@@ -577,19 +595,22 @@ export class GameScene extends Phaser.Scene {
         this.appendActionMessages(['Save data is incompatible.'])
         this.syncFloorLastAction()
         draw(this)
-        return
+        return false
       }
 
       this.closeAllOverlays()
-      this.syncFloorLastAction()
-      this.appendActionMessages(['Progress loaded.'])
-      this.syncFloorLastAction()
+      if (!options?.silent) {
+        this.appendActionMessages(['Progress loaded.'])
+        this.syncFloorLastAction()
+      }
       draw(this)
+      return true
     } catch (error) {
       console.error('[AscendTower] loadGame failed', error)
       this.appendActionMessages(['Failed to load save data.'])
       this.syncFloorLastAction()
       draw(this)
+      return false
     }
   }
 
@@ -976,6 +997,12 @@ ${details}`, coins: this.coins }
 }
 
 export default GameScene
+
+
+
+
+
+
 
 
 

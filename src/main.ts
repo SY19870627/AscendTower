@@ -1,5 +1,6 @@
-import Phaser from 'phaser'
+﻿import Phaser from 'phaser'
 import { GameScene } from './scenes/GameScene'
+import { TitleScene } from './scenes/TitleScene'
 
 
 new Phaser.Game({
@@ -9,8 +10,5 @@ new Phaser.Game({
   height: 704,
   backgroundColor: '#0a1414',
   pixelArt: true,
-  scene: [GameScene],
+  scene: [TitleScene, GameScene],
 })
-
-
-
