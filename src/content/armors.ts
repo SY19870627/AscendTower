@@ -1,9 +1,9 @@
 ﻿import type { ArmorDef } from '../core/Types'
 
 const catalog: ArmorDef[] = [
-  { id: 'leather-vest', name: 'Leather Vest', def: 4, shield: 6, desc: 'Light padding that softens blows.' },
-  { id: 'scale-mail', name: 'Scale Mail', def: 7, shield: 12, desc: 'Heavy plates that trade speed for safety.', minFloor: 2 },
-  { id: 'spirit-robe', name: 'Spirit Robe', def: 5, shield: 15, desc: 'Enchanted cloth that bolsters qi.', minFloor: 3 }
+  { id: 'leather-vest', name: '皮革護甲', def: 4, shield: 6, desc: '輕薄的襯層，可稍稍緩衝衝擊。' },
+  { id: 'scale-mail', name: '鱗甲', def: 7, shield: 12, desc: '厚重的甲片，以速度換取安全。', minFloor: 2 },
+  { id: 'spirit-robe', name: '靈紋法袍', def: 5, shield: 15, desc: '符咒縈繞的衣料，增強真氣。', minFloor: 3 }
 ]
 
 export const armors: ArmorDef[] = catalog

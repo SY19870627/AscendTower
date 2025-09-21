@@ -225,7 +225,7 @@ export class PlayerState {
       }
     }
     const label = amount > 1 ? `${item.name} x${amount}` : item.name
-    return `Gained ${label}.`
+    return `取得 ${label}。`
   }
 
   consumeInventorySlot(index: number): ItemDef | null {
@@ -327,13 +327,13 @@ export class PlayerState {
         this.stats.hp = after
         const delta = status.def.hpPerTurn
         const sign = delta > 0 ? '+' : ''
-        messages.push(`${status.def.name}: HP ${before} -> ${after} (${sign}${delta})`)
+        messages.push(`${status.def.name}：生命 ${before} -> ${after} (${sign}${delta})`)
       }
       const remainingTurns = status.remaining - 1
       if (remainingTurns > 0) {
         remaining.push({ def: status.def, remaining: remainingTurns })
       } else {
-        messages.push(`Status ended: ${status.def.name}`)
+        messages.push(`狀態結束：${status.def.name}`)
       }
     }
     this.activeStatuses = remaining
@@ -353,7 +353,7 @@ export class PlayerState {
       updated.set(id, next)
       if (next === 0) {
         const skill = this.knownSkills.find(entry => entry.id === id)
-        if (skill) messages.push(`${skill.name} is ready.`)
+        if (skill) messages.push(`${skill.name} 已冷卻完畢。`)
       }
     })
     this.skillCooldowns = updated
@@ -365,10 +365,10 @@ export class PlayerState {
     if (existing) {
       const refreshed = Math.max(existing.remaining, duration)
       existing.remaining = refreshed
-      return `Status refreshed: ${def.name} (${refreshed} turns remaining)`
+      return `狀態延長：${def.name}（剩餘 ${refreshed} 回合）`
     }
     this.activeStatuses.push({ def, remaining: duration })
-    return `Status gained: ${def.name} (${duration} turns)`
+    return `獲得狀態：${def.name}（${duration} 回合）`
   }
 
   applyStatusGrants(grants?: StatusGrant[]): string[] {
@@ -377,7 +377,7 @@ export class PlayerState {
     for (const grant of grants) {
       const def = getStatusDef(grant.id)
       if (!def) {
-        lines.push(`Unknown status: ${grant.id}`)
+        lines.push(`未知的狀態：${grant.id}`)
         continue
       }
       const duration = Math.max(grant.duration ?? def.duration, 1)
@@ -398,15 +398,15 @@ export class PlayerState {
 
   learnSkill(id: string, options?: { silent?: boolean }): string | null {
     const def = getSkillDef(id) ?? skills.find(skill => skill.id === id) ?? null
-    if (!def) return `Unknown skill: ${id}`
+    if (!def) return `未知的技能：${id}`
     if (this.knownSkills.some(skill => skill.id === def.id)) {
       if (options?.silent) return null
-      return `Skill already known: ${def.name}`
+      return `已知的技能：${def.name}`
     }
     this.knownSkills.push(def)
     this.skillCooldowns.set(def.id, 0)
     if (options?.silent) return null
-    return `Skill learned: ${def.name}`
+    return `學會技能：${def.name}`
   }
 
   applyEventOutcome(outcome: EventOutcome): ApplyOutcomeResult {
@@ -421,14 +421,14 @@ export class PlayerState {
       const before = this.stats.hp
       const after = Math.max(before + outcome.hpDelta, 0)
       this.stats.hp = after
-      append(`HP: ${before} -> ${after}`)
+      append(`生命：${before} -> ${after}`)
     }
 
     if (typeof outcome.setHp === 'number') {
       const before = this.stats.hp
       const after = Math.max(outcome.setHp, 0)
       this.stats.hp = after
-      append(`HP: ${before} -> ${after}`)
+      append(`生命：${before} -> ${after}`)
     }
 
     if (typeof outcome.weaponChargeDelta === 'number') {
@@ -438,18 +438,18 @@ export class PlayerState {
         const rawAfter = before + outcome.weaponChargeDelta
         const after = Math.max(0, Math.min(rawAfter, special.chargeMax))
         this.weaponCharge = after
-        append(`Weapon charge: ${before} -> ${after}/${special.chargeMax}`)
+        append(`武器蓄能：${before} -> ${after}/${special.chargeMax}`)
       } else {
-        append('No weapon is ready to hold extra charge.')
+        append('沒有武器可以再承載能量。')
       }
     }
 
     if (outcome.giveKey) {
       if (!this.hasKey) {
         this.hasKey = true
-        append('You secure a gleaming key.')
+        append('你妥善收好一把閃亮的鑰匙。')
       } else {
-        append('You already carry a key, so nothing changes.')
+        append('你已經持有鑰匙，沒有任何變化。')
       }
     }
 
@@ -457,7 +457,7 @@ export class PlayerState {
       for (const grant of outcome.grantItems) {
         const def = getItemDef(grant.id)
         if (!def) {
-          append(`An unknown item (${grant.id}) eludes your grasp.`)
+          append(`謎樣的物品（${grant.id}）從你手中溜走。`)
           continue
         }
         const quantity = Math.max(grant.quantity ?? 1, 1)
@@ -470,7 +470,7 @@ export class PlayerState {
       const before = this.coins
       const after = Math.max(before + outcome.coinDelta, 0)
       this.coins = after
-      append(`Coins: ${before} -> ${after}`)
+      append(`金幣：${before} -> ${after}`)
     }
 
     const statusLines = this.applyStatusGrants(outcome.grantStatuses)

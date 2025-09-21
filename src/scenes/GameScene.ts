@@ -251,7 +251,7 @@ export class GameScene extends Phaser.Scene {
     this.add.text(
       this.sidebarPadding,
       sidebarHeight - 24,
-      'WASD/Arrow keys move. Q/W/E use skills. L opens library. P saves, O loads. Legend: @ You  K Key  D Door  > Up Stairs  < Down Stairs  E Enemy  W Weapon  A Armor  S Shop  N NPC  ? Event.',
+      'WASD / 方向鍵 移動，Q/W/E 使用技能，L 開啟圖鑑，P 存檔，O 讀檔。圖例：@ 你  K 鑰匙  D 門  > 上樓梯  < 下樓梯  E 敵人  W 武器  A 防具  S 商人  N 同行者  ? 事件。',
       { fontSize: '12px', color: '#9fd' }
     ).setDepth(1)
 
@@ -553,7 +553,7 @@ export class GameScene extends Phaser.Scene {
   saveGame() {
     const storage = this.getSaveStorage()
     if (!storage) {
-      this.appendActionMessages(['Unable to access local storage for saving.'])
+      this.appendActionMessages(['無法存取本機儲存空間，無法保存進度。'])
       this.syncFloorLastAction()
       draw(this)
       return
@@ -562,11 +562,11 @@ export class GameScene extends Phaser.Scene {
     try {
       const payload = this.serializeGameState()
       storage.setItem(SAVE_KEY, JSON.stringify(payload))
-      this.appendActionMessages(['Progress saved.'])
+      this.appendActionMessages(['進度已儲存。'])
       this.syncFloorLastAction()
     } catch (error) {
-      console.error('[AscendTower] saveGame failed', error)
-      this.appendActionMessages(['Failed to save progress.'])
+      console.error('[AscendTower] 儲存失敗', error)
+      this.appendActionMessages(['儲存進度失敗。'])
       this.syncFloorLastAction()
     }
     draw(this)
@@ -575,7 +575,7 @@ export class GameScene extends Phaser.Scene {
   loadGame(options?: { silent?: boolean }): boolean {
     const storage = this.getSaveStorage()
     if (!storage) {
-      this.appendActionMessages(['Unable to access local storage for loading.'])
+      this.appendActionMessages(['無法存取本機儲存空間，無法讀取進度。'])
       this.syncFloorLastAction()
       draw(this)
       return false
@@ -583,7 +583,7 @@ export class GameScene extends Phaser.Scene {
 
     const raw = storage.getItem(SAVE_KEY)
     if (!raw) {
-      this.appendActionMessages(['No saved game found.'])
+      this.appendActionMessages(['找不到存檔。'])
       this.syncFloorLastAction()
       draw(this)
       return false
@@ -592,7 +592,7 @@ export class GameScene extends Phaser.Scene {
     try {
       const payload = JSON.parse(raw) as SerializedGameState
       if (!this.applySerializedGameState(payload)) {
-        this.appendActionMessages(['Save data is incompatible.'])
+        this.appendActionMessages(['存檔版本不相容。'])
         this.syncFloorLastAction()
         draw(this)
         return false
@@ -600,14 +600,14 @@ export class GameScene extends Phaser.Scene {
 
       this.closeAllOverlays()
       if (!options?.silent) {
-        this.appendActionMessages(['Progress loaded.'])
+        this.appendActionMessages(['進度已讀取。'])
         this.syncFloorLastAction()
       }
       draw(this)
       return true
     } catch (error) {
-      console.error('[AscendTower] loadGame failed', error)
-      this.appendActionMessages(['Failed to load save data.'])
+      console.error('[AscendTower] 讀檔失敗', error)
+      this.appendActionMessages(['讀取存檔失敗。'])
       this.syncFloorLastAction()
       draw(this)
       return false
@@ -679,7 +679,7 @@ export class GameScene extends Phaser.Scene {
       .filter((entry): entry is ShopInventoryEntry => entry !== null)
 
     if (!entries.length) {
-      this.appendActionMessages(['The merchant has nothing left to sell.'])
+      this.appendActionMessages(['商人已無可販售的物品。'])
       draw(this)
       return
     }
@@ -738,7 +738,7 @@ export class GameScene extends Phaser.Scene {
       lines.push(outcomeMessage)
     }
     if (!lines.length) {
-      lines.push(`${npc.name} nods appreciatively.`)
+      lines.push(`${npc.name} 感激地點點頭。`)
     }
     this.appendActionMessages(lines)
     this.syncFloorLastAction()
@@ -746,9 +746,9 @@ export class GameScene extends Phaser.Scene {
   }
   acquireWeapon(weapon: WeaponDef, options?: { silent?: boolean }): string[] {
     const result = this.playerState.acquireWeapon(weapon)
-    const lines = [`Equipped weapon: ${weapon.name}`]
+    const lines = [`已裝備武器：${weapon.name}`]
     if (result.replaced && result.replaced.id !== weapon.id) {
-      lines.push(`Stored ${result.replaced.name} in the armory.`)
+      lines.push(`已將 ${result.replaced.name} 收入武庫。`)
     }
     if (!options?.silent) {
       this.appendActionMessages(lines)
@@ -759,9 +759,9 @@ export class GameScene extends Phaser.Scene {
 
   acquireArmor(armor: ArmorDef, options?: { silent?: boolean }): string[] {
     const result = this.playerState.acquireArmor(armor)
-    const lines = [`Equipped armor: ${armor.name}`]
+    const lines = [`已裝備防具：${armor.name}`]
     if (result.replaced && result.replaced.id !== armor.id) {
-      lines.push(`Stored ${result.replaced.name} in the armory.`)
+      lines.push(`已將 ${result.replaced.name} 收入武庫。`)
     }
     if (!options?.silent) {
       this.appendActionMessages(lines)
@@ -774,14 +774,14 @@ export class GameScene extends Phaser.Scene {
     const before = this.playerWeapon
     const weapon = this.playerState.equipWeaponByIndex(index)
     if (!weapon) {
-      const message = "No weapon available in that slot."
+      const message = "該欄位沒有可用武器。"
       this.appendActionMessages([message])
       draw(this)
       return { success: false, message }
     }
-    const lines = [`Equipped weapon: ${weapon.name}`]
+    const lines = [`已裝備武器：${weapon.name}`]
     if (before && before.id !== weapon.id) {
-      lines.push(`Stored ${before.name} in the armory.`)
+      lines.push(`已將 ${before.name} 收入武庫。`)
     }
     this.appendActionMessages(lines)
     this.syncFloorLastAction()
@@ -793,14 +793,14 @@ export class GameScene extends Phaser.Scene {
     const before = this.playerArmor
     const armor = this.playerState.equipArmorByIndex(index)
     if (!armor) {
-      const message = "No armor available in that slot."
+      const message = "該欄位沒有可用防具。"
       this.appendActionMessages([message])
       draw(this)
       return { success: false, message }
     }
-    const lines = [`Equipped armor: ${armor.name}`]
+    const lines = [`已裝備防具：${armor.name}`]
     if (before && before.id !== armor.id) {
-      lines.push(`Stored ${before.name} in the armory.`)
+      lines.push(`已將 ${before.name} 收入武庫。`)
     }
     this.appendActionMessages(lines)
     this.syncFloorLastAction()
@@ -837,7 +837,7 @@ export class GameScene extends Phaser.Scene {
     if (!item) return false
 
     const outcomeMessage = this.applyEventOutcome(item.effect)
-    this.appendActionMessages([`Used ${item.name}.`, outcomeMessage])
+    this.appendActionMessages([`使用了 ${item.name}。`, outcomeMessage])
     const continueTurn = this.advanceTurn('item')
     if (continueTurn) {
       draw(this)
@@ -849,13 +849,13 @@ export class GameScene extends Phaser.Scene {
     if (!skill) return false
     const currentCooldown = this.playerState.getSkillCooldown(skill.id)
     if (currentCooldown > 0) {
-      this.appendActionMessages([`${skill.name} is on cooldown (${currentCooldown} turns).`])
+      this.appendActionMessages([`${skill.name} 正在冷卻（剩餘 ${currentCooldown} 回合）。`])
       draw(this)
       return true
     }
 
     const outcomeMessage = this.applyEventOutcome(skill.effect)
-    this.appendActionMessages([`Skill used: ${skill.name}`, outcomeMessage])
+    this.appendActionMessages([`已施放技能：${skill.name}`, outcomeMessage])
     this.playerState.setSkillCooldown(skill.id, Math.max(skill.cooldown, 0))
     const continueTurn = this.advanceTurn('skill')
     if (continueTurn) {
@@ -918,7 +918,7 @@ export class GameScene extends Phaser.Scene {
   purchaseFromShop(entry: ShopInventoryEntry): { success: boolean; message: string; coins: number } {
     const cost = Math.max(entry.offer.price, 0)
     if (this.coins < cost) {
-      const message = `Not enough coins. Need ${cost}, have ${this.coins}.`
+      const message = `金幣不足。需要 ${cost}，目前只有 ${this.coins}。`
       this.appendActionMessages([message])
       draw(this)
       return { success: false, message, coins: this.coins }
@@ -928,8 +928,8 @@ export class GameScene extends Phaser.Scene {
     this.coins = Math.max(this.coins - cost, 0)
     const amount = Math.max(entry.offer.quantity ?? 1, 1)
     const gainMessage = this.addItemToInventory(entry.item, amount, { silent: true })
-    const summary = `Purchased ${entry.item.name}${amount > 1 ? ` x${amount}` : ''} for ${cost} coins.`
-    const details = `Coins: ${before} -> ${this.coins}`
+    const summary = `花費 ${cost} 金幣購得 ${entry.item.name}${amount > 1 ? ` x${amount}` : ''}。`
+    const details = `金幣：${before} -> ${this.coins}`
     this.appendActionMessages([summary, gainMessage, details])
     draw(this)
     return { success: true, message: `${summary}

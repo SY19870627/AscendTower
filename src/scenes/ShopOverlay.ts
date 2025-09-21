@@ -138,7 +138,7 @@ export class ShopOverlay {
 
     this.optionTexts = this.entries.map((entry, idx) => {
       const qtyLabel = entry.offer.quantity && entry.offer.quantity > 1 ? ` x${entry.offer.quantity}` : ''
-      const label = `${idx + 1}. ${entry.item.name}${qtyLabel} - ${entry.offer.price} coins`
+      const label = `${idx + 1}. ${entry.item.name}${qtyLabel} - ${entry.offer.price} 金幣`
       const text = this.host.add
         .text(panelLeft + 36, optionsY, label, { fontSize: '18px', color: '#ffffff' })
         .setScrollFactor(0)
@@ -175,7 +175,7 @@ export class ShopOverlay {
   }
 
   private updateCoins() {
-    this.coinText?.setText(`Coins: ${this.coins}`)
+    this.coinText?.setText(`金幣：${this.coins}`)
   }
 
   private updateOptionStyles() {
@@ -195,7 +195,7 @@ export class ShopOverlay {
 
     const lines: string[] = []
     if (entry.item.description) lines.push(entry.item.description)
-    if (entry.item.effect.message) lines.push(`Use: ${entry.item.effect.message}`)
+    if (entry.item.effect.message) lines.push(`效果：${entry.item.effect.message}`)
     this.detailText.setText(lines.join('\n'))
   }
 
@@ -207,8 +207,8 @@ export class ShopOverlay {
     if (!this.instructionText) return
     const count = this.entries.length
     const range = count > 0 ? `1-${count}` : ''
-    const buyHint = count > 0 ? `Press ${range} to buy.` : 'No goods available.'
-    this.instructionText.setText(`${buyHint} Esc leaves.`)
+    const buyHint = count > 0 ? `按 ${range} 購買。` : '沒有可販售的物品。'
+    this.instructionText.setText(`${buyHint} Esc 離開。`)
   }
 
   private attemptPurchase(index: number) {

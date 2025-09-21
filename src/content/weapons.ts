@@ -3,25 +3,25 @@
 const catalog: WeaponDef[] = [
   {
     id: 'rusty-sword',
-    name: 'Rusty Sword',
+    name: '鏽蝕長劍',
     atk: 5,
-    special: { name: 'Crescent Slash', damage: 12, chargeMax: 3, desc: 'Sweeping strike that cleaves foes.' },
-    desc: 'A worn blade, but better than bare hands.'
+    special: { name: '弦月斬', damage: 12, chargeMax: 3, desc: '橫掃的斬擊，劈開眼前敵人。' },
+    desc: '老舊的刀刃，總比徒手好。'
   },
   {
     id: 'iron-spear',
-    name: 'Iron Spear',
+    name: '鐵槍',
     atk: 8,
-    special: { name: 'Piercing Lunge', damage: 16, chargeMax: 4, desc: 'Line thrust that strikes vital points.' },
-    desc: 'Balanced reach and guard.',
+    special: { name: '貫穿突刺', damage: 16, chargeMax: 4, desc: '直線突進，一擊穿透要害。' },
+    desc: '攻守距離平衡。',
     minFloor: 2
   },
   {
     id: 'jade-charm',
-    name: 'Jade Charm',
+    name: '玉靈符',
     atk: 10,
-    special: { name: 'Spirit Burst', damage: 22, chargeMax: 5, desc: 'Explosive qi wave that devastates foes.' },
-    desc: 'Mystic charm that channels lethal qi.',
+    special: { name: '靈氣爆發', damage: 22, chargeMax: 5, desc: '爆裂的靈氣浪潮，震碎敵人。' },
+    desc: '導引致命真氣的玄妙符器。',
     minFloor: 3
   }
 ]

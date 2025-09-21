@@ -3,32 +3,32 @@
 const catalog: StatusDef[] = [
   {
     id: 'battle-focus',
-    name: 'Battle Focus',
-    description: 'Attack increased by 3 for the next 3 turns.',
+    name: '戰鬥專注',
+    description: '接下來 3 回合攻擊力提升 3 點。',
     duration: 3,
     atkBonus: 3,
     type: 'buff'
   },
   {
     id: 'stone-skin',
-    name: 'Stone Skin',
-    description: 'Defense increased by 4 for the next 3 turns.',
+    name: '石膚',
+    description: '接下來 3 回合防禦力提升 4 點。',
     duration: 3,
     defBonus: 4,
     type: 'buff'
   },
   {
     id: 'regeneration',
-    name: 'Regeneration',
-    description: 'Restore 5 HP at the end of each turn for 4 turns.',
+    name: '再生',
+    description: '接下來 4 回合，每回合結束回復 5 點生命。',
     duration: 4,
     hpPerTurn: 5,
     type: 'buff'
   },
   {
     id: 'poisoned',
-    name: 'Poisoned',
-    description: 'Lose 4 HP at the end of each turn for 3 turns.',
+    name: '中毒',
+    description: '接下來 3 回合，每回合結束損失 4 點生命。',
     duration: 3,
     hpPerTurn: -4,
     type: 'debuff'

@@ -3,33 +3,33 @@
 const catalog: ItemDef[] = [
   {
     id: 'healing-herb',
-    name: 'Healing Herb',
-    description: 'A fragrant sprig that mends wounds when chewed.',
+    name: '療傷藥草',
+    description: '芬芳的草枝，嚼食後能癒合傷勢。',
     stackable: true,
     effect: {
-      message: 'You chew the restorative herb. Vitality surges through you.',
+      message: '你咀嚼療草，生機湧遍全身。',
       hpDelta: 25
     }
   },
   {
     id: 'charge-crystal',
-    name: 'Charge Crystal',
-    description: 'Condensed lightning in mineral form. Restores weapon charge.',
+    name: '蓄能水晶',
+    description: '凝成礦石的雷光，可回復武器能量。',
     stackable: true,
     minFloor: 2,
     effect: {
-      message: 'The crystal hums and your weapon drinks in the energy.',
+      message: '水晶發出低鳴，武器吸收了能量。',
       weaponChargeDelta: 3
     }
   },
   {
     id: 'iron-ration',
-    name: 'Iron Ration',
-    description: 'Dense provisions that bolster resilience for the trek ahead.',
+    name: '鐵備乾糧',
+    description: '扎實的口糧，為旅途增加韌性。',
     stackable: true,
     minFloor: 3,
     effect: {
-      message: 'The iron ration steadies your resolve. You feel hardier.',
+      message: '乾糧穩住了你的心志，身軀也更結實。',
       hpDelta: 15
     }
   }

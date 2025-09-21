@@ -3,8 +3,8 @@
 const catalog: ShopDef[] = [
   {
     id: 'travelling-herbalist',
-    title: 'Travelling Herbalist',
-    description: 'A kindly nomad lays out bundles of herbs and tinctures on a patched cloak.',
+    title: '行腳藥師',
+    description: '和善的遊方者把草藥與藥瓶鋪在補釘斗篷上。',
     offers: [
       { id: 'herb-single', itemId: 'healing-herb', price: 20 },
       { id: 'herb-bundle', itemId: 'healing-herb', price: 55, quantity: 3 },
@@ -13,8 +13,8 @@ const catalog: ShopDef[] = [
   },
   {
     id: 'lightning-curio',
-    title: 'Lightning Curio',
-    description: 'Glass vials crackle in a wooden case while a masked merchant watches silently.',
+    title: '雷光古玩商',
+    description: '玻璃瓶在木箱中噼啪作響，一名戴面具的商人靜靜注視著。',
     minFloor: 2,
     offers: [
       { id: 'charge-crystal', itemId: 'charge-crystal', price: 60 },

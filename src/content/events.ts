@@ -3,23 +3,23 @@
 export const events: EventDef[] = [
   {
     id: 'ancient-fountain',
-    title: 'Ancient Fountain',
-    description: 'A forgotten fountain murmurs with latent magic. The water glows softly beneath the dust.',
-    preview: 'A shimmering fountain invites you closer.',
+    title: '遠古靈泉',
+    description: '被遺忘的泉水潺潺低語著餘韻魔力，塵埃之下依然泛著柔光。',
+    preview: '微光閃爍的泉水召喚著你靠近。',
     options: [
       {
         id: 'drink',
-        label: 'Drink deeply',
+        label: '大口飲下',
         outcome: {
-          message: 'You drink the luminous water and feel life rush back into your veins.',
+          message: '你啜飲光華泉水，生命力奔流全身。',
           hpDelta: 30
         }
       },
       {
         id: 'wash',
-        label: 'Wash your weapon',
+        label: '淬洗武器',
         outcome: {
-          message: 'Your weapon hums as the water courses over it, yet the power strains your body.',
+          message: '泉水洗過武器時發出嗡鳴，但力量也拉扯著你的身體。',
           hpDelta: -10,
           weaponChargeDelta: 2,
           grantStatuses: [{ id: 'battle-focus' }]
@@ -27,9 +27,9 @@ export const events: EventDef[] = [
       },
       {
         id: 'collect-herbs',
-        label: 'Harvest healing moss',
+        label: '收集療癒苔蘚',
         outcome: {
-          message: 'You gather a bundle of glowing moss that smells of rain and earth.',
+          message: '你採下一束散發雨土芬芳的苔蘚。',
           grantStatuses: [{ id: 'regeneration' }],
           grantItems: [{ id: 'healing-herb', quantity: 1 }]
         }
@@ -38,25 +38,25 @@ export const events: EventDef[] = [
   },
   {
     id: 'forgotten-altar',
-    title: 'Forgotten Altar',
-    description: 'Candles lie cold around a cracked altar. Offerings from long ago still rest in the dust.',
-    preview: 'Ancient prayers hang heavy in the air.',
+    title: '遺忘祭壇',
+    description: '熄滅的蠟燭圍繞著破裂祭壇，陳年供品仍靜置於塵埃間。',
+    preview: '古老的祈禱在空氣中沉重滯留。',
     minFloor: 2,
     options: [
       {
         id: 'pray',
-        label: 'Offer a quick prayer',
+        label: '低聲祈禱',
         outcome: {
-          message: 'A harsh warmth answers you. You feel weakened, but a key materialises in your grasp.',
+          message: '灼熱的回應自祭壇滲出，你感到虛弱，卻有鑰匙在掌心成形。',
           hpDelta: -15,
           giveKey: true
         }
       },
       {
         id: 'offer-blood',
-        label: 'Spill a few drops of blood',
+        label: '滴下幾滴鮮血',
         outcome: {
-          message: 'You score your palm and press it to the stone. A whisper sharpens your weapon arm.',
+          message: '你劃破手掌貼上石面，耳語使你的手臂更銳利。',
           hpDelta: -5,
           weaponChargeDelta: 1,
           grantStatuses: [{ id: 'stone-skin' }],
@@ -65,9 +65,9 @@ export const events: EventDef[] = [
       },
       {
         id: 'inspect-offerings',
-        label: 'Inspect the old offerings',
+        label: '檢視陳舊供品',
         outcome: {
-          message: 'Among the faded trinkets you find a crackling crystal, still warm to the touch. A hidden tithe box yields 30 coins.',
+          message: '在褪色的飾品間，你找到仍溫熱的晶體，並在暗匣裡掏出 30 枚硬幣。',
           grantItems: [{ id: 'charge-crystal', quantity: 1 }],
           coinDelta: 30
         }
@@ -76,16 +76,16 @@ export const events: EventDef[] = [
   },
   {
     id: 'sealed-cache',
-    title: 'Sealed Cache',
-    description: 'A heavy coffer is chained to the floor, its lock crusted with verdigris.',
-    preview: 'Someone hid valuables here long ago.',
+    title: '封鎖藏匿箱',
+    description: '沉重的箱櫃被鍊鎖在地，鎖頭覆滿綠鏽。',
+    preview: '有人很久以前把貴重物品藏在這裡。',
     minFloor: 3,
     options: [
       {
         id: 'force-open',
-        label: 'Force it open',
+        label: '硬撬開鎖',
         outcome: {
-          message: 'The chains snap, but the effort leaves you drained.',
+          message: '鐵鏈崩斷，但你因此耗盡氣力。',
           hpDelta: -20,
           weaponChargeDelta: 3,
           grantStatuses: [{ id: 'poisoned' }]
@@ -93,9 +93,9 @@ export const events: EventDef[] = [
       },
       {
         id: 'study',
-        label: 'Study the mechanism',
+        label: '研究機關',
         outcome: {
-          message: 'You find the bypass rune and ease the lid open. Inside rests a carefully wrapped ration.',
+          message: '你找到迂迴的符文，輕鬆揭開箱蓋。裡頭躺著包裹妥善的口糧。',
           hpDelta: 20,
           grantItems: [{ id: 'iron-ration', quantity: 1 }]
         }
@@ -104,15 +104,15 @@ export const events: EventDef[] = [
   },
   {
     id: 'lost-pack',
-    title: 'Lost Pack',
-    description: 'A leather satchel lies beside a skeleton, its straps gnawed by time. Supplies spill out in the dust.',
-    preview: 'Someone left their gear behind.',
+    title: '遺落行囊',
+    description: '皮製背包倒在骸骨旁，背帶被歲月啃蝕，補給散落滿地。',
+    preview: '有人把裝備留在這裡。',
     options: [
       {
         id: 'take-everything',
-        label: 'Take everything useful',
+        label: '收走所有有用之物',
         outcome: {
-          message: 'You salvage the best of the supplies and stash them away. A few coins jingle loose in the pack.',
+          message: '你挑走最實用的物資並收好，還在包底找到幾枚硬幣。',
           grantItems: [
             { id: 'healing-herb', quantity: 2 },
             { id: 'iron-ration', quantity: 1 }
@@ -122,17 +122,17 @@ export const events: EventDef[] = [
       },
       {
         id: 'share',
-        label: 'Leave something for the next delver',
+        label: '留些東西給下一位闖者',
         outcome: {
-          message: 'You take only a small bundle, hoping the next traveler finds the rest.',
+          message: '你只取走一小捆，希望後來者也能受惠。',
           grantItems: [{ id: 'healing-herb', quantity: 1 }]
         }
       },
       {
         id: 'search-remains',
-        label: 'Search the remains for clues',
+        label: '搜尋遺骨上的線索',
         outcome: {
-          message: 'A note tucked in the pack teaches you routes through the tower. You feel steadier and spot a forgotten coin purse.',
+          message: '背包裡夾著的筆記教你穿梭塔內的捷徑，你覺得踏實不少，還找到遺落的錢袋。',
           hpDelta: 10,
           coinDelta: 25,
           grantSkills: ["renewing-wave"]

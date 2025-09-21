@@ -3,63 +3,63 @@ import type { NpcDef } from '../core/Types'
 export const npcs: NpcDef[] = [
   {
     id: 'tower-sage',
-    name: 'Tower Sage',
+    name: '塔樓老者',
     lines: [
-      'The tower remembers every step you take.',
-      'Breathe, focus, and climb with purpose.'
+      '天梯會記住你踏出的每一步。',
+      '調勻呼吸，盯緊目標，一層層攀上去。'
     ],
-    postMessage: 'The sage shares a simple breathing exercise.',
+    postMessage: '老者傳授了一個簡易吐納法。',
     outcome: {
-      message: "You feel steadier after the sage's advice.",
+      message: "聽了指點後，你覺得心神安穩。",
       hpDelta: 8
     }
   },
   {
     id: 'scout',
-    name: 'Wandering Scout',
+    name: '遊行斥候',
     minFloor: 2,
     lines: [
-      'I mapped a few hallways ahead.',
-      'Merchants gather toward the eastern halls on this floor.'
+      '我已繪出前方幾條走廊。',
+      '這層的商人多半聚在東側廊道。'
     ],
-    postMessage: 'Knowledge is the best gear I can offer.'
+    postMessage: '我能給的最好裝備就是情報。'
   },
   {
     id: 'armory-curator',
-    name: 'Armory Curator',
+    name: '武庫典藏師',
     minFloor: 3,
     lines: [
-      'I catalogued relics from every fallen challenger.',
-      'Take this and keep the stories alive.'
+      '我替每位陣亡挑戰者記錄遺物。',
+      '把這些帶上路，讓故事延續。'
     ],
     outcome: {
-      message: 'The curator quietly hands you preserved supplies.',
+      message: '典藏師默默遞給你保存良好的補給品。',
       grantItems: [{ id: 'iron-ration', quantity: 1 }]
     }
   },
   {
     id: 'battle-scholar',
-    name: 'Battle Scholar',
+    name: '戰訣學者',
     minFloor: 4,
     lines: [
-      'Your stance leaks strength at the third breath.',
-      'Let me show you a warding mantra.'
+      '你在第三口呼吸時姿勢就洩勁了。',
+      '我教你一道護身真言。'
     ],
     outcome: {
-      message: 'You internalize a steadier guard.',
+      message: '你領會了更穩固的防禦。',
       grantSkills: ['stone-ward']
     }
   },
   {
     id: 'vault-keeper',
-    name: 'Vault Keeper',
+    name: '密庫守者',
     minFloor: 5,
     lines: [
-      'The tower hoards more than dust.',
-      'Spend these coins before the climb claims you.'
+      '塔裡藏的不只灰塵而已。',
+      '在攀登奪走你之前，先把這些錢花掉吧。'
     ],
     outcome: {
-      message: 'A hidden pouch of crowns bolsters your purse.',
+      message: '隱藏的錢袋讓你的荷包鼓了起來。',
       coinDelta: 35
     }
   }

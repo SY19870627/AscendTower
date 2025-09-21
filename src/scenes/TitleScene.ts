@@ -38,7 +38,7 @@ export class TitleScene extends Phaser.Scene {
     const { width, height } = this.scale
     this.cameras.main.setBackgroundColor(0x0a1414)
 
-    this.add.text(width / 2, height * 0.22, 'Ascend Tower', {
+    this.add.text(width / 2, height * 0.22, '登仙塔', {
       fontFamily: 'serif',
       fontSize: '64px',
       color: '#ffefb0'
@@ -110,11 +110,7 @@ export class TitleScene extends Phaser.Scene {
       event.preventDefault()
       this.activateSelection()
       return
-    }
-    if (key === 'Escape') {
-      event.preventDefault()
-      this.handleQuit()
-    }
+    }    
   }
 
   private moveSelection(delta: number) {

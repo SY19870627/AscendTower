@@ -127,8 +127,8 @@ export class DialogueOverlay {
     if (this.bodyText) this.bodyText.setText(this.lines[this.index] ?? '...')
     const total = this.lines.length
     const instructions = total > 0
-      ? `Enter to continue (${this.index + 1}/${total}) �P Esc to close`
-      : 'Esc to close'
+      ? `按 Enter 繼續（${this.index + 1}/${total}），Esc 關閉`
+      : '按 Esc 關閉'
     this.instructionText?.setText(instructions)
   }
 

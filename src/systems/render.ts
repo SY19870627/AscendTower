@@ -7,10 +7,10 @@ const SKILL_HOTKEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U']
 
 type DirectionKey = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
 const DIRECTION_LABEL: Record<DirectionKey, string> = {
-  UP: 'Up',
-  DOWN: 'Down',
-  LEFT: 'Left',
-  RIGHT: 'Right'
+  UP: '上',
+  DOWN: '下',
+  LEFT: '左',
+  RIGHT: '右'
 }
 const DIRECTION_ORDER: DirectionKey[] = ['UP', 'DOWN', 'LEFT', 'RIGHT']
 
@@ -288,56 +288,56 @@ export function draw(scene: any) {
           const pid = `preview_${x}_${y}`
           addTextOnce(scene, pid, drawX + 6, drawY + 4, '', '#000')
           const enemy = enemies[0]
-          registerDirection(dir, `Enemy: ${enemy.name} (HP ${enemy.base.hp}, ATK ${enemy.base.atk})`)
+          registerDirection(dir, `敵人：${enemy.name}（生命 ${enemy.base.hp}，攻擊 ${enemy.base.atk}）`)
           break
         }
         case 'weapon': {
           const weapon = scene.weaponDrops?.get(`${x},${y}`)
-          if (weapon) registerDirection(dir, `Weapon: ${weapon.name} (ATK ${weapon.atk})`)
+          if (weapon) registerDirection(dir, `武器：${weapon.name}（攻擊 ${weapon.atk}）`)
           break
         }
         case 'armor': {
           const armor = scene.armorDrops?.get(`${x},${y}`)
           if (armor) {
-            const shieldLabel = typeof armor.shield === 'number' ? `, Shield ${armor.shield}` : ''
-            registerDirection(dir, `Armor: ${armor.name} (+DEF ${armor.def}${shieldLabel})`)
+            const shieldLabel = typeof armor.shield === 'number' ? `，護盾 ${armor.shield}` : ''
+            registerDirection(dir, `防具：${armor.name}（防禦 +${armor.def}${shieldLabel}）`)
           }
           break
         }
         case 'shop': {
           const shop = scene.shopNodes?.get(`${x},${y}`)
-          if (shop) registerDirection(dir, `Shop: ${shop.title}`)
+          if (shop) registerDirection(dir, `商人：${shop.title}`)
           break
         }
         case 'event': {
           const event = scene.eventNodes?.get(`${x},${y}`)
-          if (event) registerDirection(dir, `Event: ${event.title}`)
+          if (event) registerDirection(dir, `事件：${event.title}`)
           break
         }
         case 'npc': {
           const npc = scene.npcNodes?.get(`${x},${y}`)
-          if (npc) registerDirection(dir, `NPC: ${npc.name}`)
+          if (npc) registerDirection(dir, `人物：${npc.name}`)
           break
         }
         case 'item': {
           const item = scene.itemDrops?.get(`${x},${y}`)
-          if (item) registerDirection(dir, `Item: ${item.name}`)
+          if (item) registerDirection(dir, `道具：${item.name}`)
           break
         }
         case 'key': {
-          registerDirection(dir, 'Key: Nearby')
+          registerDirection(dir, '鑰匙：就在附近')
           break
         }
         case 'door': {
-          registerDirection(dir, scene.hasKey ? 'Door: Unlockable' : 'Door: Locked')
+          registerDirection(dir, scene.hasKey ? '門：可開啟' : '門：上鎖')
           break
         }
         case 'stairs_up': {
-          registerDirection(dir, 'Stairs: Upward')
+          registerDirection(dir, '樓梯：向上')
           break
         }
         case 'stairs_down': {
-          registerDirection(dir, 'Stairs: Downward')
+          registerDirection(dir, '樓梯：向下')
           break
         }
         default:
@@ -349,28 +349,28 @@ export function draw(scene: any) {
   const totalItems = scene.inventory?.reduce((sum: number, stack: any) => sum + (stack.quantity ?? 0), 0) ?? 0
 
   const statsLines = [
-    `FLOOR ${scene.floor}`,
-    `HP ${scene.playerStats.hp}`,
-    `ATK ${playerCombat.atk}`,
-    `DEF ${playerCombat.def}`,
-    `KEY ${scene.hasKey ? 'Y' : 'N'}`,
-    `COINS ${scene.coins}`,
-    `WEAPON ${scene.playerWeapon ? scene.playerWeapon.name : 'None'}`,
-    `ARMOR ${scene.playerArmor ? scene.playerArmor.name : 'None'}`,
-    `ITEMS ${totalItems}`
+    `樓層 ${scene.floor}`,
+    `生命 ${scene.playerStats.hp}`,
+    `攻擊 ${playerCombat.atk}`,
+    `防禦 ${playerCombat.def}`,
+    `鑰匙 ${scene.hasKey ? '有' : '無'}`,
+    `金幣 ${scene.coins}`,
+    `武器 ${scene.playerWeapon ? scene.playerWeapon.name : '無'}`,
+    `防具 ${scene.playerArmor ? scene.playerArmor.name : '無'}`,
+    `道具 ${totalItems}`
   ]
   if (scene.playerWeapon) {
     const special = scene.playerWeapon.special
     const currentCharge = Math.min(scene.weaponCharge, special.chargeMax)
-    statsLines.push(`  +ATK ${scene.playerWeapon.atk}`)
-    statsLines.push(`  Special ${special.name}: DMG ${special.damage}`)
-    statsLines.push(`  Charge ${currentCharge}/${special.chargeMax}`)
-    if (currentCharge >= special.chargeMax) statsLines.push('  Special READY')
+    statsLines.push(`  +攻擊 ${scene.playerWeapon.atk}`)
+    statsLines.push(`  特技 ${special.name}：傷害 ${special.damage}`)
+    statsLines.push(`  蓄能 ${currentCharge}/${special.chargeMax}`)
+    if (currentCharge >= special.chargeMax) statsLines.push('  特技 就緒')
     if (special.desc) statsLines.push(`  ${special.desc}`)
   }
   if (scene.playerArmor) {
-    statsLines.push(`  +DEF ${scene.playerArmor.def}`)
-    if (typeof scene.playerArmor.shield === 'number') statsLines.push(`  Shield HP ${scene.playerArmor.shield}`)
+    statsLines.push(`  +防禦 ${scene.playerArmor.def}`)
+    if (typeof scene.playerArmor.shield === 'number') statsLines.push(`  護盾值 ${scene.playerArmor.shield}`)
     if (scene.playerArmor.desc) statsLines.push(`  ${scene.playerArmor.desc}`)
   }
 
@@ -385,14 +385,14 @@ export function draw(scene: any) {
 
   const statusLinesRaw = (scene.activeStatuses ?? []).map((entry: { def: any; remaining: number }) => {
     const effectBits: string[] = []
-    if (entry.def?.atkBonus) effectBits.push(`ATK ${entry.def.atkBonus >= 0 ? '+' : ''}${entry.def.atkBonus}`)
-    if (entry.def?.defBonus) effectBits.push(`DEF ${entry.def.defBonus >= 0 ? '+' : ''}${entry.def.defBonus}`)
-    if (entry.def?.hpPerTurn) effectBits.push(`HP ${entry.def.hpPerTurn >= 0 ? '+' : ''}${entry.def.hpPerTurn}/turn`)
+    if (entry.def?.atkBonus) effectBits.push(`攻擊 ${entry.def.atkBonus >= 0 ? '+' : ''}${entry.def.atkBonus}`)
+    if (entry.def?.defBonus) effectBits.push(`防禦 ${entry.def.defBonus >= 0 ? '+' : ''}${entry.def.defBonus}`)
+    if (entry.def?.hpPerTurn) effectBits.push(`生命 ${entry.def.hpPerTurn >= 0 ? '+' : ''}${entry.def.hpPerTurn}/回合`)
     const effectSummary = effectBits.length ? ` [${effectBits.join(', ')}]` : ''
     return `${entry.def.name} (${entry.remaining})${effectSummary}`
   })
-  const statusHeader = 'Statuses:'
-  const statusText = statusLinesRaw.length ? [statusHeader, ...statusLinesRaw].join('\n') : `${statusHeader} none`
+  const statusHeader = '狀態：'
+  const statusText = statusLinesRaw.length ? [statusHeader, ...statusLinesRaw].join('\n') : `${statusHeader} 無`
   const statusColor = statusLinesRaw.length
     ? (scene.activeStatuses.some((entry: { def: any }) => entry.def.type === 'debuff') ? '#f9a6a6' : '#cfe')
     : '#888'
@@ -405,11 +405,11 @@ export function draw(scene: any) {
     const cooldown = typeof scene.getSkillCooldown === 'function'
       ? scene.getSkillCooldown(skill.id)
       : (scene.skillCooldowns?.get(skill.id) ?? 0)
-    const state = cooldown > 0 ? `CD ${cooldown}` : 'READY'
+    const state = cooldown > 0 ? `CD ${cooldown}` : '就緒'
     return `${hotkey} ${skill.name} (${state})`
   })
-  const skillHeader = 'Skills:'
-  const skillText = skillLines.length ? [skillHeader, ...skillLines].join('\n') : `${skillHeader} none`
+  const skillHeader = '技能：'
+  const skillText = skillLines.length ? [skillHeader, ...skillLines].join('\n') : `${skillHeader} 無`
   const skillColor = skillLines.some(line => line.includes('CD')) ? '#ffd27f' : '#cfe'
   addTextOnce(scene, 'skill_info', sidebarX, currentY, skillText, skillColor)
   currentY += Math.max(skillText.split('\n').length, 1) * lineHeight + sectionGap
@@ -418,11 +418,11 @@ export function draw(scene: any) {
   const inventoryLines = inventoryStacks.length
     ? inventoryStacks.map((stack: any, idx: number) => {
         const qty = stack.quantity > 1 ? ` x${stack.quantity}` : ''
-        const label = stack.def?.name ?? stack.name ?? 'Unknown'
+        const label = stack.def?.name ?? stack.name ?? '未知'
         return `${idx + 1}. ${label}${qty}`
       })
-    : ['(empty)']
-  const inventoryHeader = 'Inventory (1-9 to use)'
+    : ['（空）']
+  const inventoryHeader = '背包（按 1-9 使用）'
   const inventoryText = [inventoryHeader, ...inventoryLines].join('\n')
   const inventoryColor = inventoryStacks.length ? '#cfe' : '#888'
   const inventoryLinesCount = Math.max(inventoryText.split('\n').length, 1)
@@ -430,7 +430,7 @@ export function draw(scene: any) {
   currentY += inventoryLinesCount * lineHeight + sectionGap
 
   const lastMessage = (scene.lastActionMessage ?? '').trim()
-  const lastActionText = ['Last action:', lastMessage.length ? lastMessage : 'None'].join('\n')
+  const lastActionText = ['最後行動：', lastMessage.length ? lastMessage : '無'].join('\n')
   const actionLinesCount = Math.max(lastActionText.split('\n').length, 1)
   addTextOnce(scene, 'last_action', sidebarX, currentY, lastActionText, '#ffe9a6')
   currentY += actionLinesCount * lineHeight + sectionGap
@@ -443,7 +443,7 @@ export function draw(scene: any) {
 
   DIRECTION_ORDER.forEach(key => {
     const lines = directionInfo[key]
-    const content = [DIRECTION_LABEL[key], ...(lines.length ? lines : ['Nothing notable'])]
+    const content = [DIRECTION_LABEL[key], ...(lines.length ? lines : ['暫無特別資訊'])]
     const boxHeight = content.length * lineHeight + boxPadding * 2
     scene.gfx.fillStyle(0x102424, 0.8).fillRect(rightPanelX, directionY, boxWidth, boxHeight)
     scene.gfx.lineStyle(1, 0x2c4c4c, 1).strokeRect(rightPanelX, directionY, boxWidth, boxHeight)

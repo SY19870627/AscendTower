@@ -85,7 +85,7 @@ export class BattleOverlay {
 
     this.createUI()
     this.updateStatsText()
-    this.appendLog(`Engaging ${this.enemy.name}!`)
+    this.appendLog(`向 ${this.enemy.name} 發動攻勢！`)
     this.updateInstructions()
 
     this.host.input.keyboard?.on('keydown', this.handleKey, this)
@@ -141,7 +141,7 @@ export class BattleOverlay {
     const panelLeft = width / 2 - panelWidth / 2
 
     this.titleText = this.host.add
-      .text(width / 2, panelTop + 18, `VS ${this.enemy.name}`, { fontSize: '24px', color: '#ffe9a6' })
+      .text(width / 2, panelTop + 18, `對戰 ${this.enemy.name}`, { fontSize: '24px', color: '#ffe9a6' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
@@ -186,33 +186,33 @@ export class BattleOverlay {
 
     const weaponLines: string[] = []
     if (this.playerWeapon) {
-      weaponLines.push(`Weapon: ${this.playerWeapon.name} (ATK ${this.playerAtkBase})`)
+      weaponLines.push(`武器：${this.playerWeapon.name}（攻擊 ${this.playerAtkBase}）`)
       if (this.playerWeapon.special) {
         const ready = this.chargeMax > 0 && this.weaponCharge >= this.chargeMax
-        weaponLines.push(`Special ${this.playerWeapon.special.name} DMG ${this.playerWeapon.special.damage}`)
-        weaponLines.push(`Charge ${this.weaponCharge}/${this.chargeMax}${ready ? ' READY' : ''}`)
+        weaponLines.push(`特技 ${this.playerWeapon.special.name} 傷害 ${this.playerWeapon.special.damage}`)
+        weaponLines.push(`蓄能 ${this.weaponCharge}/${this.chargeMax}${ready ? ' 就緒' : ''}`)
         if (this.playerWeapon.special.desc) weaponLines.push(this.playerWeapon.special.desc)
       }
     } else {
-      weaponLines.push(`Weapon: None (ATK ${this.playerAtkBase})`)
-      weaponLines.push('Special: None')
+      weaponLines.push(`武器：無（攻擊 ${this.playerAtkBase}）`)
+      weaponLines.push('特技：無')
     }
 
     const armorLines: string[] = []
     if (this.playerArmor) {
-      armorLines.push(`Armor: ${this.playerArmor.name} (+DEF ${this.playerArmor.def})`)
+      armorLines.push(`防具：${this.playerArmor.name}（防禦 +${this.playerArmor.def}）`)
       if (typeof this.playerArmor.shield === 'number') {
-        armorLines.push(`Shield: ${Math.max(this.shieldRemaining, 0)}/${this.playerArmor.shield}`)
+        armorLines.push(`護盾：${Math.max(this.shieldRemaining, 0)}/${this.playerArmor.shield}`)
       }
       if (this.playerArmor.desc) armorLines.push(this.playerArmor.desc)
     } else if (this.shieldMax > 0) {
-      armorLines.push(`Shield: ${Math.max(this.shieldRemaining, 0)}/${this.shieldMax}`)
+      armorLines.push(`護盾：${Math.max(this.shieldRemaining, 0)}/${this.shieldMax}`)
     }
 
     const playerLines = [
-      'You',
-      `HP: ${this.playerHp}/${this.startingHp}`,
-      `DEF: ${this.playerDef}`,
+      '你',
+      `生命：${this.playerHp}/${this.startingHp}`,
+      `防禦：${this.playerDef}`,
       ...weaponLines,
       ...armorLines
     ]
@@ -221,9 +221,9 @@ export class BattleOverlay {
 
     const enemyLines = [
       this.enemy.name,
-      `HP: ${this.enemyHp}`,
-      `ATK: ${this.enemy.base.atk}`,
-      `DEF: ${this.enemy.base.def}`
+      `生命：${this.enemyHp}`,
+      `攻擊：${this.enemy.base.atk}`,
+      `防禦：${this.enemy.base.def}`
     ]
 
     this.enemyText.setText(enemyLines.join('\n'))
@@ -235,11 +235,11 @@ export class BattleOverlay {
 
     let actionLine: string
     if (this.battleEnded) {
-      actionLine = 'Press Enter/Space/Esc to finish the battle.'
+      actionLine = '按 Enter / Space / Esc 結束戰鬥。'
     } else if (!this.battleStarted) {
-      actionLine = 'Press Enter or Space to begin. Esc retreats.'
+      actionLine = '按 Enter 或 Space 開始，Esc 撤退。'
     } else {
-      actionLine = 'Press Enter or Space to advance to the next round.'
+      actionLine = '按 Enter 或 Space 進入下一回合。'
     }
 
     const lines = [actionLine]
@@ -247,9 +247,9 @@ export class BattleOverlay {
     if (!this.battleEnded) {
       if (this.autoAdvanceIntervalMs > 0 && this.autoAdvanceEvent) {
         const seconds = this.autoAdvanceIntervalMs === 500 ? '0.5' : (this.autoAdvanceIntervalMs / 1000).toString()
-        lines.push(`Auto battle active: ${seconds}s per round. Press 0 to stop.`)
+        lines.push(`自動戰鬥啟動：每回合 ${seconds} 秒。按 0 停止。`)
       } else {
-        lines.push('Press 1 for 0.5s auto battle, 2 for 1s, 0 to cancel auto battle.')
+        lines.push('按 1 啟動每回合 0.5 秒自動戰鬥，按 2 為 1 秒，按 0 取消。')
       }
     }
 
@@ -291,7 +291,7 @@ export class BattleOverlay {
     }
 
     this.enemyHp -= damage
-    this.appendLog(`You strike for ${damage} damage${usedSpecial ? ' (special)' : ''}.`)
+    this.appendLog(`你造成 ${damage} 點傷害${usedSpecial ? '（特技）' : ''}。`)
     if (this.enemyHp <= 0) {
       this.finishBattle(true)
       if (auto) this.stopAutoAdvance(false)
@@ -310,12 +310,12 @@ export class BattleOverlay {
       this.playerHp -= remainingDamage
     }
 
-    const enemyLines: string[] = [`Enemy strikes for ${rawEnemyDamage} damage`]
-    if (shieldAbsorbed > 0) enemyLines.push(`Shield absorbed ${shieldAbsorbed}`)
+    const enemyLines: string[] = [`敵人造成 ${rawEnemyDamage} 點傷害`]
+    if (shieldAbsorbed > 0) enemyLines.push(`護盾吸收了 ${shieldAbsorbed} 點傷害`)
     if (remainingDamage > 0) {
-      enemyLines.push(`HP now ${Math.max(this.playerHp, 0)}`)
+      enemyLines.push(`目前生命 ${Math.max(this.playerHp, 0)}`)
     } else {
-      enemyLines.push('Shield absorbed everything')
+      enemyLines.push('護盾吸收了所有傷害')
     }
     this.appendLog(enemyLines.join('; '))
 
@@ -348,7 +348,7 @@ export class BattleOverlay {
     this.battleEnded = true
     this.victory = victory
     this.updateStatsText()
-    this.appendLog(victory ? 'You prevailed!' : 'You were defeated...')
+    this.appendLog(victory ? '你贏得勝利！' : '你被擊敗了……')
     this.updateInstructions()
   }
 

@@ -85,7 +85,7 @@ export class LibraryOverlay {
     const panelLeft = width / 2 - panelWidth / 2
 
     this.titleText = this.host.add
-      .text(width / 2, panelTop + 18, 'Collection', { fontSize: '24px', color: '#ffe9a6' })
+      .text(width / 2, panelTop + 18, '藏品總覽', { fontSize: '24px', color: '#ffe9a6' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
@@ -219,8 +219,8 @@ export class LibraryOverlay {
     this.listText?.setText(view.lines.join('\n'))
     this.detailText?.setText(view.detail)
     const instructionLines = [
-      '[1] Weapons  [2] Armor  [3] Items  [4] Skills',
-      'Use Up/Down to navigate, Enter to equip/use, Esc or L to close.'
+      '[1] 武器  [2] 防具  [3] 道具  [4] 技能',
+      '用 ↑/↓ 移動，Enter 裝備或使用，Esc 或 L 關閉。'
     ]
     if (this.statusMessage) instructionLines.push(this.statusMessage)
     this.instructionText?.setText(instructionLines.join('\n'))
@@ -257,20 +257,20 @@ export class LibraryOverlay {
       ? stash.map((weapon, idx) => {
           const pointer = idx === this.selectedIndex ? '>' : ' '
           const equipped = weapon.id === currentId ? '[E]' : '   '
-          return `${pointer} ${equipped} ${idx + 1}. ${weapon.name} (ATK ${weapon.atk})`
+          return `${pointer} ${equipped} ${idx + 1}. ${weapon.name}（攻擊 ${weapon.atk}）`
         })
-      : ['(empty)']
+      : ['（空）']
 
-    let detail = 'No weapon selected.'
+    let detail = '未選擇任何武器。'
     const weapon = stash[this.selectedIndex]
     if (weapon) {
       const detailLines = [
         `${weapon.name}`,
-        `Attack ${weapon.atk}`
+        `攻擊 ${weapon.atk}`
       ]
       if (weapon.special) {
-        detailLines.push(`Special: ${weapon.special.name}`)
-        detailLines.push(`Charge ${weapon.special.chargeMax}, Damage ${weapon.special.damage}`)
+        detailLines.push(`特技：${weapon.special.name}`)
+        detailLines.push(`蓄能 ${weapon.special.chargeMax}，傷害 ${weapon.special.damage}`)
         if (weapon.special.desc) detailLines.push(weapon.special.desc)
       }
       if (weapon.desc) detailLines.push(weapon.desc)
@@ -278,7 +278,7 @@ export class LibraryOverlay {
     }
 
     return {
-      title: 'Armory - Weapons',
+      title: '武備庫 - 武器',
       lines,
       detail
     }
@@ -292,25 +292,25 @@ export class LibraryOverlay {
       ? stash.map((armor, idx) => {
           const pointer = idx === this.selectedIndex ? '>' : ' '
           const equipped = armor.id === currentId ? '[E]' : '   '
-          const shieldLabel = typeof armor.shield === 'number' ? `, Shield ${armor.shield}` : ''
-          return `${pointer} ${equipped} ${idx + 1}. ${armor.name} (DEF ${armor.def}${shieldLabel})`
+          const shieldLabel = typeof armor.shield === 'number' ? `，護盾 ${armor.shield}` : ''
+          return `${pointer} ${equipped} ${idx + 1}. ${armor.name}（防禦 ${armor.def}${shieldLabel}）`
         })
-      : ['(empty)']
+      : ['（空）']
 
-    let detail = 'No armor selected.'
+    let detail = '未選擇任何防具。'
     const armor = stash[this.selectedIndex]
     if (armor) {
       const detailLines = [
         `${armor.name}`,
-        `Defense ${armor.def}`
+        `防禦 ${armor.def}`
       ]
-      if (typeof armor.shield === 'number') detailLines.push(`Shield ${armor.shield}`)
+      if (typeof armor.shield === 'number') detailLines.push(`護盾 ${armor.shield}`)
       if (armor.desc) detailLines.push(armor.desc)
       detail = detailLines.join('\n')
     }
 
     return {
-      title: 'Armory - Armor',
+      title: '武備庫 - 防具',
       lines,
       detail
     }
@@ -325,9 +325,9 @@ export class LibraryOverlay {
           const qty = stack.quantity > 1 ? ` x${stack.quantity}` : ''
           return `${pointer}   ${idx + 1}. ${stack.def.name}${qty}`
         })
-      : ['(empty)']
+      : ['（空）']
 
-    let detail = 'No item selected.'
+    let detail = '未選擇任何道具。'
     const stack = inventory[this.selectedIndex]
     if (stack) {
       const detailLines = [stack.def.name]
@@ -337,7 +337,7 @@ export class LibraryOverlay {
     }
 
     return {
-      title: 'Satchel - Items',
+      title: '行囊 - 道具',
       lines,
       detail
     }
@@ -350,17 +350,17 @@ export class LibraryOverlay {
       ? skills.map((skill, idx) => {
           const pointer = idx === this.selectedIndex ? '>' : ' '
           const cooldown = this.host.getSkillCooldown?.(skill.id) ?? 0
-          const state = cooldown > 0 ? `CD ${cooldown}` : 'READY'
+          const state = cooldown > 0 ? `CD ${cooldown}` : '就緒'
           return `${pointer}   ${idx + 1}. ${skill.name} (${state})`
         })
-      : ['(empty)']
+      : ['（空）']
 
-    let detail = 'No skill selected.'
+    let detail = '未選擇任何技能。'
     const skill = skills[this.selectedIndex]
     if (skill) {
       const detailLines = [
         `${skill.name}`,
-        `Cooldown ${skill.cooldown}`,
+        `冷卻 ${skill.cooldown}`,
         skill.description
       ]
       if (skill.effect?.message) detailLines.push(skill.effect.message)
@@ -368,7 +368,7 @@ export class LibraryOverlay {
     }
 
     return {
-      title: 'Grimoire - Skills',
+      title: '靈典 - 技能',
       lines,
       detail
     }
@@ -377,26 +377,26 @@ export class LibraryOverlay {
   private reorderSelectedSkill(delta: number) {
     const skills = this.host.knownSkills ?? []
     if (!skills.length) {
-      this.statusMessage = 'No skills to reorder.'
+      this.statusMessage = '沒有可調整的技能。'
       this.refresh()
       return
     }
     const target = this.selectedIndex + delta
     if (target < 0 || target >= skills.length) {
-      this.statusMessage = delta < 0 ? 'Already at the top.' : 'Already at the bottom.'
+      this.statusMessage = delta < 0 ? '已經在最上方。' : '已經在最下方。'
       this.refresh()
       return
     }
     const moved = this.host.reorderSkill?.(this.selectedIndex, delta) ?? false
     if (!moved) {
-      this.statusMessage = 'Unable to reorder skills.'
+      this.statusMessage = '無法調整技能順序。'
       this.refresh()
       return
     }
     const updatedSkills = this.host.knownSkills ?? skills
     this.selectedIndex = target
     const skill = updatedSkills[target]
-    this.statusMessage = skill ? `Moved ${skill.name} ${delta < 0 ? 'up' : 'down'}.` : 'Skill order updated.'
+    this.statusMessage = skill ? `已將 ${skill.name} ${delta < 0 ? '上移' : '下移'}。` : '技能順序已更新。'
     this.refresh()
   }
   private performAction() {
@@ -415,7 +415,7 @@ export class LibraryOverlay {
       }
       case 'items': {
         const success = this.host.useInventorySlot?.(this.selectedIndex) ?? false
-        this.statusMessage = success ? 'Item used.' : 'No item available in that slot.'
+        this.statusMessage = success ? '已使用道具。' : '該欄位沒有道具。'
         this.refresh()
         return
       }
@@ -424,9 +424,9 @@ export class LibraryOverlay {
         const skill = this.host.knownSkills?.[this.selectedIndex]
         const handled = this.host.useSkill?.(this.selectedIndex) ?? false
         if (skill) {
-          this.statusMessage = handled ? `Skill command sent: ${skill.name}.` : `Unable to use ${skill.name}.`
+          this.statusMessage = handled ? `已發出技能指令：${skill.name}。` : `無法使用 ${skill.name}。`
         } else {
-          this.statusMessage = handled ? 'Skill command sent.' : 'No skill available.'
+          this.statusMessage = handled ? '已發出技能指令。' : '沒有可用技能。'
         }
         this.refresh()
       }
