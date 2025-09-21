@@ -19,7 +19,7 @@ export class Grid {
   tileUnderPlayer: Tile = 'floor'
   private hasPlayer = false
 
-  constructor(w = 11, h = 11, seed = 1337, options?: GridOptions) {
+  constructor(w = 14, h = 14, seed = 1337, options?: GridOptions) {
     this.w = w
     this.h = h
     this.rng = new RNG(seed)

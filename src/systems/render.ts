@@ -322,7 +322,7 @@ export function draw(scene: any) {
       gfx.fillStyle(color, 1)
       gfx.fillRect(drawX, drawY, tileSize, tileSize)
       gfx.lineStyle(1, 0x0d1414, 0.4)
-      gfx.strokeRect(drawX, drawY, tileSize, tileSize)
+      gfx.strokeRect(drawX + 0.5, drawY + 0.5, tileSize - 1, tileSize - 1)
 
       drawTileIcon(scene, tile, drawX, drawY, tileSize)
 

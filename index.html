@@ -4,7 +4,34 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>輪迴登仙：原型</title>
-<style>body,html{margin:0;height:100%;background:#0b1b1b;color:#eee;font-family:ui-sans-serif,system-ui}</style>
+<style>
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #0b1b1b;
+  color: #eee;
+  font-family: ui-sans-serif, system-ui;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+#app {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+canvas {
+  display: block;
+}
+</style>
 </head>
 <body>
 <div id="app"></div>

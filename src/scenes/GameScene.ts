@@ -272,7 +272,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const seed = (Date.now() ^ (this.floor << 8)) & 0xffff
-    this.grid = new Grid(11, 11, seed, { includeDownstairs: this.floor > 1 })
+    this.grid = new Grid(14, 14, seed, { includeDownstairs: this.floor > 1 })
     this.weaponDrops = new Map<string, WeaponDef>()
     this.armorDrops = new Map<string, ArmorDef>()
     this.eventNodes = new Map<string, EventDef>()
