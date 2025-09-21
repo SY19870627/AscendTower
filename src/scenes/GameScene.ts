@@ -1,4 +1,4 @@
-﻿import Phaser from 'phaser'
+import Phaser from 'phaser'
 import { Grid } from '../core/Grid'
 import type {
   ArmorDef,
@@ -8,10 +8,9 @@ import type {
   WeaponDef,
   ItemDef,
   ShopDef,
-  StatusDef,
-  StatusGrant,
   SkillDef
 } from '../core/Types'
+import { PlayerState, type InventoryEntry, type ActiveStatus } from '../game/player/PlayerState'
 import { handleInput } from '../systems/input'
 import { draw } from '../systems/render'
 import { spawnWeapons, spawnArmors, spawnItems, makePosKey } from '../systems/spawning'
@@ -19,8 +18,6 @@ import { enemies } from '../content/enemies'
 import { events } from '../content/events'
 import { getShopsForFloor } from '../content/shops'
 import { getItemDef } from '../content/items'
-import { getStatusDef } from '../content/statuses'
-import { skills, getSkillDef } from '../content/skills'
 import { BattleOverlay, type BattleInitData } from './BattleOverlay'
 import { EventOverlay, type EventResolution } from './EventOverlay'
 import { ShopOverlay, type ShopResolution, type ShopInventoryEntry } from './ShopOverlay'
@@ -33,12 +30,6 @@ export class GameScene extends Phaser.Scene {
 
   grid!: Grid
   gfx!: Phaser.GameObjects.Graphics
-  hasKey = false
-  playerStats = { hp: 120, mp: 20 }
-  playerWeapon: WeaponDef | null = null
-  playerArmor: ArmorDef | null = null
-  weaponCharge = 0
-  coins = 120
   readonly sidebarWidth = 360
   readonly sidebarPadding = 16
   gridOrigin = { x: 0, y: 0 }
@@ -48,14 +39,71 @@ export class GameScene extends Phaser.Scene {
   eventNodes = new Map<string, EventDef>()
   shopNodes = new Map<string, ShopDef>()
   itemDrops = new Map<string, ItemDef>()
-  inventory: { def: ItemDef; quantity: number }[] = []
-  activeStatuses: { def: StatusDef; remaining: number }[] = []
-  knownSkills: SkillDef[] = []
-  skillCooldowns = new Map<string, number>()
   lastActionMessage = ''
   battleOverlay!: BattleOverlay
   eventOverlay!: EventOverlay
   shopOverlay!: ShopOverlay
+  private readonly playerState = new PlayerState()
+
+  get hasKey(): boolean {
+    return this.playerState.hasKey
+  }
+
+  set hasKey(value: boolean) {
+    this.playerState.hasKey = value
+  }
+
+  get playerStats() {
+    return this.playerState.stats
+  }
+
+  get playerWeapon(): WeaponDef | null {
+    return this.playerState.weapon
+  }
+
+  set playerWeapon(value: WeaponDef | null) {
+    this.playerState.weapon = value
+  }
+
+  get playerArmor(): ArmorDef | null {
+    return this.playerState.armor
+  }
+
+  set playerArmor(value: ArmorDef | null) {
+    this.playerState.armor = value
+  }
+
+  get weaponCharge(): number {
+    return this.playerState.weaponCharge
+  }
+
+  set weaponCharge(value: number) {
+    this.playerState.weaponCharge = Math.max(value, 0)
+  }
+
+  get coins(): number {
+    return this.playerState.coins
+  }
+
+  set coins(value: number) {
+    this.playerState.coins = Math.max(value, 0)
+  }
+
+  get inventory(): InventoryEntry[] {
+    return this.playerState.inventory
+  }
+
+  get activeStatuses(): ActiveStatus[] {
+    return this.playerState.activeStatuses
+  }
+
+  get knownSkills(): SkillDef[] {
+    return this.playerState.knownSkills
+  }
+
+  get skillCooldowns(): Map<string, number> {
+    return this.playerState.skillCooldowns
+  }
 
   private appendActionMessages(lines: string[]) {
     const additions = lines.map(line => line.trim()).filter(line => line.length > 0)
@@ -66,14 +114,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   getStatusBonuses() {
-    return this.activeStatuses.reduce(
-      (acc, status) => {
-        acc.atk += status.def.atkBonus ?? 0
-        acc.def += status.def.defBonus ?? 0
-        return acc
-      },
-      { atk: 0, def: 0 }
-    )
+    return this.playerState.getStatusBonuses()
   }
 
   init(data?: { floor?: number; reset?: boolean }) {
@@ -82,19 +123,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   resetPlayerState() {
-    this.hasKey = false
-    this.playerStats = { hp: 120, mp: 20 }
-    this.playerWeapon = null
-    this.playerArmor = null
-    this.weaponCharge = 0
-    this.coins = 120
-    this.inventory = []
+    this.playerState.reset()
     this.itemDrops.clear()
     this.shopNodes.clear()
-    this.activeStatuses = []
-    this.knownSkills = []
-    this.skillCooldowns.clear()
-    this.learnSkill('battle-shout', { silent: true })
     this.lastActionMessage = ''
   }
 
@@ -107,8 +138,8 @@ export class GameScene extends Phaser.Scene {
     this.eventNodes.clear()
     this.shopNodes.clear()
     this.itemDrops.clear()
-    this.activeStatuses = []
-    this.skillCooldowns.clear()
+    this.playerState.activeStatuses = []
+    this.playerState.skillCooldowns.clear()
 
     spawnWeapons(this)
     spawnArmors(this)
@@ -203,22 +234,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   addItemToInventory(item: ItemDef, quantity = 1, options?: { silent?: boolean }): string {
-    const amount = Math.max(quantity, 1)
-    if (item.stackable) {
-      const existing = this.inventory.find(entry => entry.def.id === item.id)
-      if (existing) {
-        existing.quantity += amount
-      } else {
-        this.inventory.push({ def: item, quantity: amount })
-      }
-    } else {
-      for (let i = 0; i < amount; i++) {
-        this.inventory.push({ def: item, quantity: 1 })
-      }
-    }
-
-    const label = amount > 1 ? `${item.name} x${amount}` : item.name
-    const message = `Gained ${label}.`
+    const message = this.playerState.addItemToInventory(item, quantity)
     if (!options?.silent) {
       this.appendActionMessages([message])
     }
@@ -226,18 +242,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   useInventorySlot(index: number): boolean {
-    const stack = this.inventory[index]
-    if (!stack) return false
-    const item = stack.def
-
-    if (item.stackable) {
-      stack.quantity = Math.max(stack.quantity - 1, 0)
-      if (stack.quantity <= 0) {
-        this.inventory.splice(index, 1)
-      }
-    } else {
-      this.inventory.splice(index, 1)
-    }
+    const item = this.playerState.consumeInventorySlot(index)
+    if (!item) return false
 
     const outcomeMessage = this.applyEventOutcome(item.effect)
     this.appendActionMessages([`Used ${item.name}.`, outcomeMessage])
@@ -247,11 +253,10 @@ export class GameScene extends Phaser.Scene {
     }
     return true
   }
-
   useSkill(index: number): boolean {
-    const skill = this.knownSkills[index]
+    const skill = this.playerState.getSkillByIndex(index)
     if (!skill) return false
-    const currentCooldown = this.skillCooldowns.get(skill.id) ?? 0
+    const currentCooldown = this.playerState.getSkillCooldown(skill.id)
     if (currentCooldown > 0) {
       this.appendActionMessages([`${skill.name} is on cooldown (${currentCooldown} turns).`])
       draw(this)
@@ -260,88 +265,20 @@ export class GameScene extends Phaser.Scene {
 
     const outcomeMessage = this.applyEventOutcome(skill.effect)
     this.appendActionMessages([`Skill used: ${skill.name}`, outcomeMessage])
-    this.skillCooldowns.set(skill.id, Math.max(skill.cooldown, 0))
+    this.playerState.setSkillCooldown(skill.id, Math.max(skill.cooldown, 0))
     const continueTurn = this.advanceTurn('skill')
     if (continueTurn) {
       draw(this)
     }
     return true
   }
-
   applyEventOutcome(outcome: EventOutcome): string {
-    let message = outcome.message.trim()
-    const append = (line: string) => {
-      message = message.length ? `${message}\n${line}` : line
-    }
-
-    if (typeof outcome.hpDelta === 'number') {
-      const before = this.playerStats.hp
-      const after = Math.max(before + outcome.hpDelta, 0)
-      this.playerStats.hp = after
-      append(`HP: ${before} -> ${after}`)
-    }
-
-    if (typeof outcome.setHp === 'number') {
-      const before = this.playerStats.hp
-      const after = Math.max(outcome.setHp, 0)
-      this.playerStats.hp = after
-      append(`HP: ${before} -> ${after}`)
-    }
-
-    if (typeof outcome.weaponChargeDelta === 'number') {
-      const special = this.playerWeapon?.special
-      if (special && special.chargeMax > 0) {
-        const before = Math.min(this.weaponCharge, special.chargeMax)
-        const rawAfter = before + outcome.weaponChargeDelta
-        const after = Math.max(0, Math.min(rawAfter, special.chargeMax))
-        this.weaponCharge = after
-        append(`Weapon charge: ${before} -> ${after}/${special.chargeMax}`)
-      } else {
-        append('No weapon is ready to hold extra charge.')
-      }
-    }
-
-    if (outcome.giveKey) {
-      if (!this.hasKey) {
-        this.hasKey = true
-        append('You secure a gleaming key.')
-      } else {
-        append('You already carry a key, so nothing changes.')
-      }
-    }
-
-    if (Array.isArray(outcome.grantItems) && outcome.grantItems.length) {
-      for (const grant of outcome.grantItems) {
-        const def = getItemDef(grant.id)
-        if (!def) {
-          append(`An unknown item (${grant.id}) eludes your grasp.`)
-          continue
-        }
-        const quantity = Math.max(grant.quantity ?? 1, 1)
-        const gainMessage = this.addItemToInventory(def, quantity, { silent: true })
-        append(gainMessage)
-      }
-    }
-
-    if (typeof outcome.coinDelta === 'number') {
-      const before = this.coins
-      const after = Math.max(before + outcome.coinDelta, 0)
-      this.coins = after
-      append(`Coins: ${before} -> ${after}`)
-    }
-
-    const statusLines = this.applyStatusGrants(outcome.grantStatuses)
-    statusLines.forEach(append)
-
-    const skillLines = this.applySkillGrants(outcome.grantSkills)
-    skillLines.forEach(append)
-
+    const { message } = this.playerState.applyEventOutcome(outcome)
     this.lastActionMessage = message
     this.cameras.main.flash(90, 120, 220, 255)
     draw(this)
     return message
   }
-
   startBattle(enemyPos: Vec2) {
     if (this.eventOverlay?.isActive) return
     if (this.shopOverlay?.isActive) return
@@ -432,8 +369,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   advanceTurn(_reason: 'move' | 'item' | 'shop' | 'skill' = 'move'): boolean {
-    const statusTick = this.tickStatuses()
-    const skillTick = this.tickSkillCooldowns()
+    const statusTick = this.playerState.tickStatuses()
+    const skillTick = this.playerState.tickSkillCooldowns()
     const messages = [...statusTick.messages, ...skillTick]
     if (messages.length) this.appendActionMessages(messages)
     if (statusTick.defeated) {
@@ -443,105 +380,16 @@ export class GameScene extends Phaser.Scene {
     return true
   }
 
-  private tickStatuses(): { messages: string[]; defeated: boolean } {
-    if (!this.activeStatuses.length) return { messages: [], defeated: false }
-    const messages: string[] = []
-    const remaining: { def: StatusDef; remaining: number }[] = []
 
-    for (const status of this.activeStatuses) {
-      if (typeof status.def.hpPerTurn === 'number' && status.def.hpPerTurn !== 0) {
-        const before = this.playerStats.hp
-        const after = Math.max(before + status.def.hpPerTurn, 0)
-        this.playerStats.hp = after
-        const delta = status.def.hpPerTurn
-        const sign = delta > 0 ? '+' : ''
-        messages.push(`${status.def.name}: HP ${before} -> ${after} (${sign}${delta})`)
-      }
-      const remainingTurns = status.remaining - 1
-      if (remainingTurns > 0) {
-        remaining.push({ def: status.def, remaining: remainingTurns })
-      } else {
-        messages.push(`Status ended: ${status.def.name}`)
-      }
-    }
 
-    this.activeStatuses = remaining
-    return { messages, defeated: this.playerStats.hp <= 0 }
-  }
 
-  private tickSkillCooldowns(): string[] {
-    if (this.skillCooldowns.size === 0) return []
-    const messages: string[] = []
-    const updated = new Map<string, number>()
-    this.skillCooldowns.forEach((value, id) => {
-      if (value <= 0) {
-        updated.set(id, 0)
-        return
-      }
-      const next = Math.max(value - 1, 0)
-      updated.set(id, next)
-      if (next === 0) {
-        const skill = this.knownSkills.find(entry => entry.id === id)
-        if (skill) messages.push(`${skill.name} is ready.`)
-      }
-    })
-    this.skillCooldowns = updated
-    return messages
-  }
-
-  private addStatus(def: StatusDef, duration: number): string {
-    const existing = this.activeStatuses.find(status => status.def.id === def.id)
-    if (existing) {
-      const refreshed = Math.max(existing.remaining, duration)
-      existing.remaining = refreshed
-      return `Status refreshed: ${def.name} (${refreshed} turns remaining)`
-    }
-    this.activeStatuses.push({ def, remaining: duration })
-    return `Status gained: ${def.name} (${duration} turns)`
-  }
-
-  private applyStatusGrants(grants?: StatusGrant[]): string[] {
-    if (!Array.isArray(grants) || !grants.length) return []
-    const lines: string[] = []
-    for (const grant of grants) {
-      const def = getStatusDef(grant.id)
-      if (!def) {
-        lines.push(`Unknown status: ${grant.id}`)
-        continue
-      }
-      const duration = Math.max(grant.duration ?? def.duration, 1)
-      lines.push(this.addStatus(def, duration))
-    }
-    return lines
-  }
-
-  private applySkillGrants(grants?: string[]): string[] {
-    if (!Array.isArray(grants) || !grants.length) return []
-    const lines: string[] = []
-    for (const id of grants) {
-      const message = this.learnSkill(id)
-      if (message) lines.push(message)
-    }
-    return lines
-  }
 
   learnSkill(id: string, options?: { silent?: boolean }): string | null {
-    const def = getSkillDef(id) ?? skills.find(skill => skill.id === id) ?? null
-    if (!def) return `Unknown skill: ${id}`
-    if (this.knownSkills.some(skill => skill.id === def.id)) {
-      if (options?.silent) return null
-      return `Skill already known: ${def.name}`
-    }
-    this.knownSkills.push(def)
-    this.skillCooldowns.set(def.id, 0)
-    if (options?.silent) return null
-    return `Skill learned: ${def.name}`
+    return this.playerState.learnSkill(id, options)
   }
-
   getSkillCooldown(skillId: string): number {
-    return this.skillCooldowns.get(skillId) ?? 0
+    return this.playerState.getSkillCooldown(skillId)
   }
-
   handlePlayerDefeat() {
     this.cameras.main.flash(160, 255, 60, 60)
     this.resetPlayerState()
@@ -552,3 +400,20 @@ export class GameScene extends Phaser.Scene {
 }
 
 export default GameScene
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
