@@ -1,5 +1,5 @@
-﻿import Phaser from 'phaser'
-import { TILE, COLORS, GLYPH } from '../content/tilesets'
+import Phaser from 'phaser'
+import { TILE, COLORS } from '../content/tilesets'
 import { enemies } from '../content/enemies'
 import type { SkillDef } from '../core/Types'
 import { getEffectiveCombatStats } from './combat'
