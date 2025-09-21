@@ -142,12 +142,13 @@ export class LibraryOverlay {
       event.preventDefault()
       this.moveSelection(1)
       return
+    }
+
     if (this.category === 'skills' && (key === '[' || key === ']')) {
       event.preventDefault()
       const delta = key === '[' ? -1 : 1
       this.reorderSelectedSkill(delta)
       return
-    }
     }
 
     if (key === 'Enter' || key === ' ' || key === 'Spacebar' || key === 'Space') {
@@ -221,7 +222,6 @@ export class LibraryOverlay {
       '[1] Weapons  [2] Armor  [3] Items  [4] Skills',
       'Use Up/Down to navigate, Enter to equip/use, Esc or L to close.'
     ]
-    if (this.category === 'skills') instructionLines.push('Use [ and ] to reorder skills.')
     if (this.statusMessage) instructionLines.push(this.statusMessage)
     this.instructionText?.setText(instructionLines.join('\n'))
   }
@@ -435,4 +435,5 @@ export class LibraryOverlay {
 }
 
 export default LibraryOverlay
+
 

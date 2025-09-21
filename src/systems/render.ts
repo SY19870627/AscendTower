@@ -5,7 +5,137 @@ import { getEffectiveCombatStats, describeDirection } from './combat'
 
 const SKILL_HOTKEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U']
 
-export function addTextOnce(scene: any, id: string, x: number, y: number, text: string, color: string) {
+type DirectionKey = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
+const DIRECTION_LABEL: Record<DirectionKey, string> = {
+  UP: 'Up',
+  DOWN: 'Down',
+  LEFT: 'Left',
+  RIGHT: 'Right'
+}
+const DIRECTION_ORDER: DirectionKey[] = ['UP', 'DOWN', 'LEFT', 'RIGHT']
+
+function drawTileIcon(scene: any, tile: string, drawX: number, drawY: number, size: number) {
+  const g = scene.gfx
+  const cx = drawX + size / 2
+  const cy = drawY + size / 2
+
+  switch (tile) {
+    case 'player': {
+      g.fillStyle(0x2f98ff, 0.85)
+      g.fillCircle(cx, cy, size * 0.24)
+      g.lineStyle(3, 0xffffff, 0.95)
+      g.strokeCircle(cx, cy, size * 0.28)
+      g.lineBetween(cx - size * 0.18, cy, cx + size * 0.18, cy)
+      g.lineBetween(cx, cy - size * 0.18, cx, cy + size * 0.18)
+      break
+    }
+    case 'enemy': {
+      g.fillStyle(0xff6b6b, 0.75)
+      g.fillCircle(cx, cy, size * 0.26)
+      g.lineStyle(3, 0x320808, 0.9)
+      g.strokeCircle(cx, cy, size * 0.26)
+      g.lineBetween(cx - size * 0.18, cy - size * 0.18, cx + size * 0.18, cy + size * 0.18)
+      g.lineBetween(cx - size * 0.18, cy + size * 0.18, cx + size * 0.18, cy - size * 0.18)
+      break
+    }
+    case 'weapon': {
+      g.lineStyle(4, 0xfff2a6, 0.95)
+      g.lineBetween(drawX + size * 0.28, drawY + size * 0.72, drawX + size * 0.72, drawY + size * 0.28)
+      g.lineStyle(2, 0x8b6200, 0.9)
+      g.strokeCircle(drawX + size * 0.72, drawY + size * 0.28, size * 0.08)
+      break
+    }
+    case 'armor': {
+      g.fillStyle(0x9fd4ff, 0.8)
+      g.beginPath()
+      g.moveTo(cx, drawY + size * 0.22)
+      g.lineTo(drawX + size * 0.78, drawY + size * 0.36)
+      g.lineTo(drawX + size * 0.64, drawY + size * 0.78)
+      g.lineTo(drawX + size * 0.36, drawY + size * 0.78)
+      g.lineTo(drawX + size * 0.22, drawY + size * 0.36)
+      g.closePath()
+      g.fillPath()
+      g.lineStyle(2, 0x1a3f5a, 0.85)
+      g.strokePath()
+      break
+    }
+    case 'key': {
+      g.fillStyle(0xffeb6b, 0.85)
+      g.fillCircle(drawX + size * 0.36, cy, size * 0.18)
+      g.lineStyle(3, 0x8a6c15, 0.9)
+      g.strokeCircle(drawX + size * 0.36, cy, size * 0.18)
+      g.lineBetween(drawX + size * 0.5, cy, drawX + size * 0.8, cy)
+      g.lineBetween(drawX + size * 0.7, cy, drawX + size * 0.7, cy + size * 0.16)
+      break
+    }
+    case 'door': {
+      g.fillStyle(0xd9a86b, 0.85)
+      g.fillRect(drawX + size * 0.22, drawY + size * 0.2, size * 0.56, size * 0.6)
+      g.lineStyle(2, 0x4b3218, 0.85)
+      g.strokeRect(drawX + size * 0.22, drawY + size * 0.2, size * 0.56, size * 0.6)
+      break
+    }
+    case 'stairs': {
+      g.fillStyle(0x7ad3b5, 0.9)
+      g.fillTriangle(drawX + size * 0.3, drawY + size * 0.7, drawX + size * 0.7, drawY + size * 0.7, cx, drawY + size * 0.3)
+      g.lineStyle(2, 0xffffff, 0.85)
+      g.strokeTriangle(drawX + size * 0.3, drawY + size * 0.7, drawX + size * 0.7, drawY + size * 0.7, cx, drawY + size * 0.3)
+      break
+    }
+    case 'event': {
+      g.fillStyle(0xd7b0ff, 0.85)
+      g.fillEllipse(cx, cy - size * 0.05, size * 0.18, size * 0.24)
+      g.lineStyle(2, 0x4b2f69, 0.9)
+      g.strokeEllipse(cx, cy - size * 0.05, size * 0.18, size * 0.24)
+      g.fillStyle(0xd7b0ff, 0.9)
+      g.fillRect(cx - size * 0.04, cy + size * 0.05, size * 0.08, size * 0.22)
+      break
+    }
+    case 'shop': {
+      g.fillStyle(0xffc04d, 0.9)
+      g.fillRect(drawX + size * 0.3, drawY + size * 0.32, size * 0.4, size * 0.34)
+      g.lineStyle(2, 0x8a5a12, 0.85)
+      g.strokeRect(drawX + size * 0.3, drawY + size * 0.32, size * 0.4, size * 0.34)
+      g.fillStyle(0x8a5a12, 0.9)
+      g.fillCircle(cx - size * 0.08, cy + size * 0.08, size * 0.04)
+      g.fillCircle(cx + size * 0.08, cy + size * 0.08, size * 0.04)
+      break
+    }
+    case 'item': {
+      g.fillStyle(0xffd27f, 0.85)
+      g.beginPath()
+      const points = 8
+      const inner = size * 0.12
+      const outer = size * 0.24
+      for (let i = 0; i < points; i++) {
+        const angle = (Math.PI / 4) * i
+        const r = i % 2 === 0 ? outer : inner
+        const px = cx + Math.cos(angle) * r
+        const py = cy + Math.sin(angle) * r
+        if (i === 0) g.moveTo(px, py)
+        else g.lineTo(px, py)
+      }
+      g.closePath()
+      g.fillPath()
+      g.lineStyle(2, 0x6b4814, 0.9)
+      g.strokePath()
+      break
+    }
+    case 'npc': {
+      g.fillStyle(0xbfe4ff, 0.9)
+      g.fillCircle(cx, drawY + size * 0.32, size * 0.14)
+      g.fillStyle(0xbfe4ff, 0.85)
+      g.fillRect(drawX + size * 0.32, drawY + size * 0.42, size * 0.36, size * 0.32)
+      g.lineStyle(2, 0x2a4a66, 0.85)
+      g.strokeRect(drawX + size * 0.32, drawY + size * 0.42, size * 0.36, size * 0.32)
+      break
+    }
+    default:
+      break
+  }
+}
+
+function addTextOnce(scene: any, id: string, x: number, y: number, text: string, color: string) {
   const key = `txt_${id}`
   const existing = scene.children.getByName(key) as Phaser.GameObjects.Text | undefined
   if (existing) {
@@ -22,201 +152,125 @@ export function draw(scene: any) {
   const baseX = scene.gridOrigin.x
   const baseY = scene.gridOrigin.y
 
-  const enemyInfoBlocks: string[] = []
-  const weaponInfoBlocks: string[] = []
-  const armorInfoBlocks: string[] = []
-  const eventInfoBlocks: string[] = []
-  const npcInfoBlocks: string[] = []
-  const shopInfoBlocks: string[] = []
-  const itemInfoBlocks: string[] = []
+  const directionInfo: Record<DirectionKey, string[]> = {
+    UP: [],
+    DOWN: [],
+    LEFT: [],
+    RIGHT: []
+  }
+
+  const registerDirection = (dir: DirectionKey, line: string) => {
+    const bucket = directionInfo[dir]
+    if (!bucket.includes(line)) bucket.push(line)
+  }
+
   const playerCombat = getEffectiveCombatStats(scene)
+
+  const cleanupIds = [
+    'enemy_info',
+    'weapon_info',
+    'armor_info',
+    'event_info',
+    'npc_info',
+    'shop_info',
+    'item_info',
+    'direction_up',
+    'direction_down',
+    'direction_left',
+    'direction_right'
+  ]
+  cleanupIds.forEach(id => {
+    const existing = scene.children.getByName(`txt_${id}`) as Phaser.GameObjects.Text | undefined
+    existing?.destroy()
+  })
 
   for (let y = 0; y < scene.grid.h; y++) {
     for (let x = 0; x < scene.grid.w; x++) {
-      const t = scene.grid.tiles[y][x]
-      const c = COLORS[t as keyof typeof COLORS] ?? COLORS.floor
+      const tile = scene.grid.tiles[y][x]
       const drawX = baseX + x * s
       const drawY = baseY + y * s
+      const color = COLORS[tile as keyof typeof COLORS] ?? COLORS.floor
 
-      // tile background
-      scene.gfx.fillStyle(c, 1).fillRect(drawX, drawY, s - 1, s - 1)
+      scene.gfx.fillStyle(color, 1).fillRect(drawX, drawY, s - 1, s - 1)
 
-      if (t === 'door') {
-        scene.gfx.lineStyle(2, 0xffffff, 0.9)
-        scene.gfx.strokeRect(drawX + 2, drawY + 2, s - 5, s - 5)
-      }
-
-      const glyph = (GLYPH as any)[t] ?? ''
-      const id = `glyph_${x}_${y}`
+      const glyph = (GLYPH as any)[tile] ?? ''
+      const glyphId = `glyph_${x}_${y}`
       const gx = drawX + (s / 2 - 10)
       const gy = drawY + (s / 2 - 12)
-      addTextOnce(scene, id, gx, gy, glyph, '#ffffff')
+      addTextOnce(scene, glyphId, gx, gy, glyph, '#ffffff')
+      drawTileIcon(scene, tile, drawX, drawY, s)
 
-      if (t === 'enemy') {
-        const pid = `prev_${x}_${y}`
-        addTextOnce(scene, pid, drawX + 6, drawY + 4, '', '#000')
-        const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
-        if (adj) {
-          const e = enemies[0]
-          const dx = x - scene.grid.playerPos.x
-          const dy = y - scene.grid.playerPos.y
-          const dirLabel = describeDirection(dx, dy)
-          const infoLines = [
-            `Enemy(${dirLabel}): ${e.name}`,
-            `HP ${e.base.hp}`,
-            `ATK ${e.base.atk}`,
-            `DEF ${e.base.def}`
-          ]
-          enemyInfoBlocks.push(infoLines.join('\n'))
-        }
-      }
-
-      if (t === 'weapon') {
-        const weapon = scene.weaponDrops.get(`${x},${y}`)
-        if (!weapon) continue
-        const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
-        if (adj) {
-          const dx = x - scene.grid.playerPos.x
-          const dy = y - scene.grid.playerPos.y
-          const dirLabel = describeDirection(dx, dy)
-          const lines = [
-            `Weapon(${dirLabel}): ${weapon.name}`,
-            `Base ATK ${weapon.atk}`,
-            `Special ${weapon.special.name}: DMG ${weapon.special.damage}`,
-            `Charge ${weapon.special.chargeMax} hits`
-          ]
-          if (weapon.desc) lines.push(weapon.desc)
-          if (weapon.special.desc) lines.push(weapon.special.desc)
-          weaponInfoBlocks.push(lines.join('\n'))
-        }
-      }
-
-      if (t === 'armor') {
-        const armor = scene.armorDrops.get(`${x},${y}`)
-        if (!armor) continue
-        const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
-        if (adj) {
-          const dx = x - scene.grid.playerPos.x
-          const dy = y - scene.grid.playerPos.y
-          const dirLabel = describeDirection(dx, dy)
-          const lines = [
-            `Armor(${dirLabel}): ${armor.name}`,
-            `+DEF ${armor.def}`
-          ]
-          if (typeof armor.shield === 'number') lines.push(`Shield HP ${armor.shield}`)
-          if (armor.desc) lines.push(armor.desc)
-          armorInfoBlocks.push(lines.join('\n'))
-        }
-      }
-
-      if (t === 'shop') {
-        const shop = scene.shopNodes?.get(`${x},${y}`)
-        if (shop) {
-          const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
-          if (adj) {
-            const dx = x - scene.grid.playerPos.x
-            const dy = y - scene.grid.playerPos.y
-            const dirLabel = describeDirection(dx, dy)
-            const lines = [
-              `Shop(${dirLabel}): ${shop.title}`,
-              shop.description
-            ]
-            shopInfoBlocks.push(lines.join('\n'))
-          }
-        }
-      }
-
-      if (t === 'event') {
-        const event = scene.eventNodes?.get(`${x},${y}`)
-        if (event) {
-          const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
-          if (adj) {
-            const dx = x - scene.grid.playerPos.x
-            const dy = y - scene.grid.playerPos.y
-            const dirLabel = describeDirection(dx, dy)
-            const lines = [
-              `Event(${dirLabel}): ${event.title}`,
-              event.preview ?? event.description
-            ]
-            eventInfoBlocks.push(lines.join('\n'))
-          }
-        }
-      }
-
-      if (t === 'npc') {
-        const key = `${x},${y}`
-        const npc = scene.npcNodes?.get(key)
-        const pid = `npc_${x}_${y}`
-        const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
-        if (adj && npc) {
-          const dx = x - scene.grid.playerPos.x
-          const dy = y - scene.grid.playerPos.y
-          const dirLabel = describeDirection(dx, dy)
-          const lines = [
-            `NPC(${dirLabel}): ${npc.name}`,
-            npc.postMessage ?? 'Press Enter to chat.'
-          ]
-          npcInfoBlocks.push(lines.join('\n'))
-        } else {
+      const dx = x - scene.grid.playerPos.x
+      const dy = y - scene.grid.playerPos.y
+      const adj = Math.abs(dx) + Math.abs(dy) === 1
+      if (!adj) {
+        if (tile === 'enemy') {
+          const pid = `preview_${x}_${y}`
           addTextOnce(scene, pid, drawX + 6, drawY + 4, '', '#000')
         }
+        continue
       }
-      if (t === 'item') {
-        const item = scene.itemDrops?.get(`${x},${y}`)
-        if (item) {
-          const adj = Math.abs(x - scene.grid.playerPos.x) + Math.abs(y - scene.grid.playerPos.y) === 1
-          if (adj) {
-            const dx = x - scene.grid.playerPos.x
-            const dy = y - scene.grid.playerPos.y
-            const dirLabel = describeDirection(dx, dy)
-            const lines = [
-              `Item(${dirLabel}): ${item.name}`,
-              item.description ?? item.effect.message
-            ]
-            itemInfoBlocks.push(lines.join('\n'))
-          }
+
+      const dir = describeDirection(dx, dy) as DirectionKey
+
+      switch (tile) {
+        case 'enemy': {
+          const pid = `preview_${x}_${y}`
+          addTextOnce(scene, pid, drawX + 6, drawY + 4, '', '#000')
+          const enemy = enemies[0]
+          registerDirection(dir, `Enemy: ${enemy.name} (HP ${enemy.base.hp}, ATK ${enemy.base.atk})`)
+          break
         }
+        case 'weapon': {
+          const weapon = scene.weaponDrops?.get(`${x},${y}`)
+          if (weapon) registerDirection(dir, `Weapon: ${weapon.name} (ATK ${weapon.atk})`)
+          break
+        }
+        case 'armor': {
+          const armor = scene.armorDrops?.get(`${x},${y}`)
+          if (armor) {
+            const shieldLabel = typeof armor.shield === 'number' ? `, Shield ${armor.shield}` : ''
+            registerDirection(dir, `Armor: ${armor.name} (+DEF ${armor.def}${shieldLabel})`)
+          }
+          break
+        }
+        case 'shop': {
+          const shop = scene.shopNodes?.get(`${x},${y}`)
+          if (shop) registerDirection(dir, `Shop: ${shop.title}`)
+          break
+        }
+        case 'event': {
+          const event = scene.eventNodes?.get(`${x},${y}`)
+          if (event) registerDirection(dir, `Event: ${event.title}`)
+          break
+        }
+        case 'npc': {
+          const npc = scene.npcNodes?.get(`${x},${y}`)
+          if (npc) registerDirection(dir, `NPC: ${npc.name}`)
+          break
+        }
+        case 'item': {
+          const item = scene.itemDrops?.get(`${x},${y}`)
+          if (item) registerDirection(dir, `Item: ${item.name}`)
+          break
+        }
+        case 'key': {
+          registerDirection(dir, 'Key: Nearby')
+          break
+        }
+        case 'door': {
+          registerDirection(dir, scene.hasKey ? 'Door: Unlockable' : 'Door: Locked')
+          break
+        }
+        case 'stairs': {
+          registerDirection(dir, 'Stairs: Next floor')
+          break
+        }
+        default:
+          break
       }
     }
   }
-
-  const enemyInfoText = enemyInfoBlocks.length
-    ? enemyInfoBlocks.join('\n\n')
-    : 'Enemies nearby: none'
-  const enemyInfoColor = enemyInfoBlocks.length ? '#8ef' : '#888'
-
-  const weaponInfoText = weaponInfoBlocks.length
-    ? weaponInfoBlocks.join('\n\n')
-    : 'Weapons nearby: none'
-  const weaponInfoColor = weaponInfoBlocks.length
-    ? (scene.playerWeapon?.special && Math.min(scene.weaponCharge, scene.playerWeapon.special.chargeMax) >= scene.playerWeapon.special.chargeMax ? '#ffe9a6' : '#cfe')
-    : '#888'
-
-  const armorInfoText = armorInfoBlocks.length
-    ? armorInfoBlocks.join('\n\n')
-    : 'Armor nearby: none'
-  const armorInfoColor = armorInfoBlocks.length ? '#cde' : '#888'
-
-  const eventInfoText = eventInfoBlocks.length
-    ? eventInfoBlocks.join('\n\n')
-    : 'Events nearby: none'
-  const eventInfoColor = eventInfoBlocks.length ? '#ffe9a6' : '#888'
-
-  const npcInfoText = npcInfoBlocks.length
-    ? npcInfoBlocks.join('\n\n')
-    : 'NPCs nearby: none'
-  const npcInfoColor = npcInfoBlocks.length ? '#cfe' : '#888'
-
-
-  const shopInfoText = shopInfoBlocks.length
-    ? shopInfoBlocks.join('\n\n')
-    : 'Shops nearby: none'
-  const shopInfoColor = shopInfoBlocks.length ? '#ffd27f' : '#888'
-
-  const itemInfoText = itemInfoBlocks.length
-    ? itemInfoBlocks.join('\n\n')
-    : 'Items nearby: none'
-  const itemInfoColor = itemInfoBlocks.length ? '#ffd27f' : '#888'
 
   const totalItems = scene.inventory?.reduce((sum: number, stack: any) => sum + (stack.quantity ?? 0), 0) ?? 0
 
@@ -286,34 +340,6 @@ export function draw(scene: any) {
   addTextOnce(scene, 'skill_info', sidebarX, currentY, skillText, skillColor)
   currentY += Math.max(skillText.split('\n').length, 1) * lineHeight + sectionGap
 
-  const enemyLinesCount = Math.max(enemyInfoText.split('\n').length, 1)
-  addTextOnce(scene, 'enemy_info', sidebarX, currentY, enemyInfoText, enemyInfoColor)
-  currentY += enemyLinesCount * lineHeight + sectionGap
-
-  const weaponLinesCount = Math.max(weaponInfoText.split('\n').length, 1)
-  addTextOnce(scene, 'weapon_info', sidebarX, currentY, weaponInfoText, weaponInfoColor)
-  currentY += weaponLinesCount * lineHeight + sectionGap
-
-  const armorLinesCount = Math.max(armorInfoText.split('\n').length, 1)
-  addTextOnce(scene, 'armor_info', sidebarX, currentY, armorInfoText, armorInfoColor)
-  currentY += armorLinesCount * lineHeight + sectionGap
-
-  const eventLinesCount = Math.max(eventInfoText.split('\n').length, 1)
-  addTextOnce(scene, 'event_info', sidebarX, currentY, eventInfoText, eventInfoColor)
-  currentY += eventLinesCount * lineHeight + sectionGap
-  const npcLinesCount = Math.max(npcInfoText.split('\n').length, 1)
-  addTextOnce(scene, 'npc_info', sidebarX, currentY, npcInfoText, npcInfoColor)
-  currentY += npcLinesCount * lineHeight + sectionGap
-
-
-  const shopLinesCount = Math.max(shopInfoText.split('\n').length, 1)
-  addTextOnce(scene, 'shop_info', sidebarX, currentY, shopInfoText, shopInfoColor)
-  currentY += shopLinesCount * lineHeight + sectionGap
-
-  const itemLinesCount = Math.max(itemInfoText.split('\n').length, 1)
-  addTextOnce(scene, 'item_info', sidebarX, currentY, itemInfoText, itemInfoColor)
-  currentY += itemLinesCount * lineHeight + sectionGap
-
   const inventoryStacks: any[] = scene.inventory ?? []
   const inventoryLines = inventoryStacks.length
     ? inventoryStacks.map((stack: any, idx: number) => {
@@ -334,8 +360,30 @@ export function draw(scene: any) {
   const actionLinesCount = Math.max(lastActionText.split('\n').length, 1)
   addTextOnce(scene, 'last_action', sidebarX, currentY, lastActionText, '#ffe9a6')
   currentY += actionLinesCount * lineHeight + sectionGap
-}
 
+  const rightPanelX = baseX + scene.grid.w * s + 24
+  const boxWidth = 220
+  const boxPadding = 8
+  const verticalGap = 16
+  let directionY = scene.sidebarPadding
+
+  DIRECTION_ORDER.forEach(key => {
+    const lines = directionInfo[key]
+    const content = [DIRECTION_LABEL[key], ...(lines.length ? lines : ['Nothing notable'])]
+    const boxHeight = content.length * lineHeight + boxPadding * 2
+    scene.gfx.fillStyle(0x102424, 0.8).fillRect(rightPanelX, directionY, boxWidth, boxHeight)
+    scene.gfx.lineStyle(1, 0x2c4c4c, 1).strokeRect(rightPanelX, directionY, boxWidth, boxHeight)
+    addTextOnce(
+      scene,
+      `direction_${key.toLowerCase()}`,
+      rightPanelX + boxPadding,
+      directionY + boxPadding,
+      content.join('\n'),
+      '#cfe'
+    )
+    directionY += boxHeight + verticalGap
+  })
+}
 
 
 
