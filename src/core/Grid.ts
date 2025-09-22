@@ -46,7 +46,8 @@ export class Grid {
       t === 'event' ||
       t === 'shop' ||
       t === 'npc' ||
-      t === 'item'
+      t === 'item' ||
+      t === 'ending'
     )
   }
 

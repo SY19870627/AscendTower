@@ -120,6 +120,14 @@ export class GameScene extends Phaser.Scene {
   private readonly handleJumpButtonClick = () => {
     this.jumpToFloor(10)
   }
+  private readonly endingDialogueLines = [
+    '你跨出塔門，卻聽見遠處傳來第一層的木門聲再度被推開。',
+    '風裡有初來者的腳步，你把自己的名字，寫在門後那張微黃的符紙背面',
+    '“若見此字，別怕黑。” ',
+    '然後你把符紙輕輕一按，世界再次刷新。'
+  ]
+  private endingTilePos: Vec2 | null = null
+  private endingTriggered = false
   private readonly floorStates = new Map<number, FloorState>()
   private pendingEntry: 'up' | 'down' | null = null
   private pendingStartMode: 'load' | null = null
@@ -210,6 +218,8 @@ export class GameScene extends Phaser.Scene {
     this.floor = data?.floor ?? this.floor ?? 1
     this.pendingEntry = data?.entry ?? null
     this.pendingStartMode = data?.startMode === 'load' ? 'load' : null
+    this.endingTriggered = false
+    this.endingTilePos = null
   }
 
   resetPlayerState() {
@@ -224,6 +234,8 @@ export class GameScene extends Phaser.Scene {
     this.lastActionMessage = ''
     this.pendingEntry = null
     this.pendingStartMode = null
+    this.endingTilePos = null
+    this.endingTriggered = false
     this.syncFloorLastAction()
   }
 
@@ -306,6 +318,46 @@ export class GameScene extends Phaser.Scene {
     this.jumpButtonEl = undefined
   }
 
+  private ensureEndingTile() {
+    if (this.floor !== 10) {
+      this.endingTilePos = null
+      return
+    }
+
+    const existing = this.findEndingTilePos()
+    if (existing) {
+      this.endingTilePos = existing
+      return
+    }
+
+    const pos = this.grid.place('ending')
+    this.endingTilePos = pos
+  }
+
+  private refreshEndingTileReference() {
+    if (this.floor !== 10) {
+      this.endingTilePos = null
+      return
+    }
+
+    this.endingTilePos = this.findEndingTilePos()
+  }
+
+  private findEndingTilePos(): Vec2 | null {
+    if (!this.grid?.tiles) return null
+
+    for (let y = 0; y < this.grid.tiles.length; y++) {
+      const row = this.grid.tiles[y]
+      for (let x = 0; x < row.length; x++) {
+        if (row[x] === 'ending') {
+          return { x, y }
+        }
+      }
+    }
+
+    return null
+  }
+
   private loadFloorState() {
     const cached = this.floorStates.get(this.floor)
     if (cached) {
@@ -317,6 +369,7 @@ export class GameScene extends Phaser.Scene {
       this.shopNodes = cached.shopNodes
       this.itemDrops = cached.itemDrops
       this.lastActionMessage = cached.lastActionMessage
+      this.refreshEndingTileReference()
       this.syncFloorLastAction()
       this.positionPlayerForEntry()
       return
@@ -338,6 +391,7 @@ export class GameScene extends Phaser.Scene {
     this.spawnShops()
     this.spawnEvents()
     this.spawnNpcs()
+    this.ensureEndingTile()
     if (!this.knownSkills.length) this.learnSkill('battle-shout', { silent: true })
 
     const state: FloorState = {
@@ -411,6 +465,38 @@ export class GameScene extends Phaser.Scene {
 
     const entry = direction === 'up' ? 'down' : 'up'
     this.scene.restart({ floor: clamped, entry })
+  }
+
+  private startEndingSequence(pos: Vec2) {
+    if (this.endingTriggered) return
+    if (this.dialogueOverlay?.isActive) return
+
+    this.endingTriggered = true
+    this.endingTilePos = { x: pos.x, y: pos.y }
+
+    if (this.grid.tiles[pos.y] && this.grid.tiles[pos.y][pos.x] === 'ending') {
+      this.grid.tiles[pos.y][pos.x] = 'floor'
+    }
+    if (this.grid.playerPos.x === pos.x && this.grid.playerPos.y === pos.y) {
+      this.grid.setTileUnderPlayer('floor')
+    }
+
+    draw(this)
+
+    const finaleNpc: NpcDef = {
+      id: 'ending',
+      name: '�𳻦^�n',
+      lines: [...this.endingDialogueLines]
+    }
+
+    this.dialogueOverlay.open({ npc: finaleNpc, pos })
+  }
+
+  private handleEndingCompletion() {
+    this.endingTilePos = null
+    this.time.delayedCall(240, () => {
+      this.scene.start('TitleScene')
+    })
   }
 
   transitionFloor(direction: 'up' | 'down') {
@@ -796,8 +882,17 @@ export class GameScene extends Phaser.Scene {
     this.dialogueOverlay.open({ npc: npcDef, pos })
   }
 
+  triggerEndingTile(pos: Vec2) {
+    this.startEndingSequence(pos)
+  }
+
   resolveNpcInteraction(payload: { npc: NpcDef; pos: Vec2 }) {
     const { npc, pos } = payload
+    if (npc.id === 'ending') {
+      this.handleEndingCompletion()
+      return
+    }
+
     const key = makePosKey(pos.x, pos.y)
     this.npcNodes.delete(key)
     if (this.grid.tiles[pos.y][pos.x] === 'npc') {

@@ -197,6 +197,14 @@ function drawTileIcon(scene: any, tile: string, drawX: number, drawY: number, si
       g.strokeRect(drawX + size * 0.32, drawY + size * 0.42, size * 0.36, size * 0.32)
       break
     }
+    case 'ending': {
+      g.fillStyle(0xff71c8, 0.9)
+      g.fillRect(drawX + size * 0.24, drawY + size * 0.24, size * 0.52, size * 0.52)
+      g.lineStyle(2, 0xffffff, 0.9)
+      g.strokeRect(drawX + size * 0.24, drawY + size * 0.24, size * 0.52, size * 0.52)
+      g.fillCircle(cx, cy, size * 0.1)
+      break
+    }
     default:
       break
   }

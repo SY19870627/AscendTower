@@ -90,6 +90,11 @@ export function handleInput(scene: any, key: string) {
     case 'npc':
       scene.startNpc(nextPos)
       break
+    case 'ending':
+      if (typeof scene.triggerEndingTile === 'function') {
+        scene.triggerEndingTile(nextPos)
+      }
+      return
     case 'stairs_up':
       scene.transitionFloor?.('up')
       return

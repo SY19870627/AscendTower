@@ -14,6 +14,7 @@ export type Tile =
   | 'shop'
   | 'npc'
   | 'item'
+  | 'ending'
 export interface EnemyDef {
   id: string
   name: string
