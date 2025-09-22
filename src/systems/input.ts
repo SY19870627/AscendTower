@@ -1,4 +1,4 @@
-﻿import { pickupWeapon, pickupArmor, pickupItem } from './spawning'
+import { pickupWeapon, pickupArmor, pickupItem } from './spawning'
 import { draw } from './render'
 
 export function handleInput(scene: any, key: string) {

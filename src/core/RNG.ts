@@ -1,4 +1,4 @@
-﻿export class RNG {
+export class RNG {
   private s: number
 
   constructor(seed = 123456789) {

@@ -1,4 +1,4 @@
-﻿import type { EnemyDef } from '../core/Types'
+import type { EnemyDef } from '../core/Types'
 
 export type CombatOutcome = {
   canWin: boolean
