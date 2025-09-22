@@ -21,9 +21,10 @@ import { enemies } from '../content/enemies'
 import { events, getEventDef } from '../content/events'
 import { npcs, getNpcDef } from '../content/npcs'
 import { getShopsForFloor, getShopDef } from '../content/shops'
-import { getItemDef } from '../content/items'
-import { getWeaponDef } from '../content/weapons'
-import { getArmorDef } from '../content/armors'
+import { items, getItemDef } from '../content/items'
+import { weapons, getWeaponDef } from '../content/weapons'
+import { armors, getArmorDef } from '../content/armors'
+import { skills } from '../content/skills'
 import { BattleOverlay, type BattleInitData } from './BattleOverlay'
 import { EventOverlay, type EventResolution } from './EventOverlay'
 import { ShopOverlay, type ShopResolution, type ShopInventoryEntry } from './ShopOverlay'
@@ -118,8 +119,12 @@ export class GameScene extends Phaser.Scene {
   dialogueOverlay!: DialogueOverlay
   libraryOverlay!: LibraryOverlay
   private jumpButtonEl?: HTMLButtonElement
+  private testLootButtonEl?: HTMLButtonElement
   private readonly handleJumpButtonClick = () => {
     this.jumpToFloor(10)
+  }
+  private readonly handleTestLootButtonClick = () => {
+    this.grantAllTestingRewards()
   }
   private readonly endingDialogueLines = [
     '你跨出塔門，卻聽見遠處傳來第一層的木門聲再度被推開。',
@@ -290,45 +295,129 @@ export class GameScene extends Phaser.Scene {
 
     this.cleanupJumpButton()
 
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.textContent = this.floor === 10 ? '已抵達第10層' : '前往第10層'
-    button.style.position = 'fixed'
-    button.style.top = '16px'
-    button.style.right = '24px'
-    button.style.zIndex = '5000'
-    button.style.padding = '8px 16px'
-    button.style.background = this.floor === 10 ? '#2d3a3a' : '#275555'
-    button.style.color = '#fdf7df'
-    button.style.border = '1px solid #49b6a6'
-    button.style.borderRadius = '6px'
-    button.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.35)'
-    button.style.fontSize = '14px'
-    button.style.fontFamily = 'inherit'
-    button.style.cursor = this.floor === 10 ? 'default' : 'pointer'
+    const jumpButton = document.createElement('button')
+    jumpButton.type = 'button'
+    jumpButton.textContent = this.floor === 10 ? '已抵達第10層' : '前往第10層'
+    jumpButton.style.position = 'fixed'
+    jumpButton.style.top = '16px'
+    jumpButton.style.right = '24px'
+    jumpButton.style.zIndex = '5000'
+    jumpButton.style.padding = '8px 16px'
+    jumpButton.style.background = this.floor === 10 ? '#2d3a3a' : '#275555'
+    jumpButton.style.color = '#fdf7df'
+    jumpButton.style.border = '1px solid #49b6a6'
+    jumpButton.style.borderRadius = '6px'
+    jumpButton.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.35)'
+    jumpButton.style.fontSize = '14px'
+    jumpButton.style.fontFamily = 'inherit'
+    jumpButton.style.cursor = this.floor === 10 ? 'default' : 'pointer'
 
     if (this.floor !== 10) {
-      button.addEventListener('click', this.handleJumpButtonClick)
+      jumpButton.addEventListener('click', this.handleJumpButtonClick)
     } else {
-      button.disabled = true
-      button.style.opacity = '0.65'
+      jumpButton.disabled = true
+      jumpButton.style.opacity = '0.65'
     }
 
-    document.body.appendChild(button)
-    this.jumpButtonEl = button
+    document.body.appendChild(jumpButton)
+    this.jumpButtonEl = jumpButton
+
+    const lootButton = document.createElement('button')
+    lootButton.type = 'button'
+    lootButton.textContent = '測試：取得全資源'
+    lootButton.style.position = 'fixed'
+    lootButton.style.top = '56px'
+    lootButton.style.right = '24px'
+    lootButton.style.zIndex = '5000'
+    lootButton.style.padding = '8px 16px'
+    lootButton.style.background = '#3d274f'
+    lootButton.style.color = '#fdf7df'
+    lootButton.style.border = '1px solid #704b9e'
+    lootButton.style.borderRadius = '6px'
+    lootButton.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.35)'
+    lootButton.style.fontSize = '14px'
+    lootButton.style.fontFamily = 'inherit'
+    lootButton.style.cursor = 'pointer'
+
+    lootButton.addEventListener('click', this.handleTestLootButtonClick)
+    document.body.appendChild(lootButton)
+    this.testLootButtonEl = lootButton
 
     this.events.once('shutdown', () => this.cleanupJumpButton())
     this.events.once('destroy', () => this.cleanupJumpButton())
   }
 
   private cleanupJumpButton() {
-    const button = this.jumpButtonEl
-    if (!button) return
+    const jumpButton = this.jumpButtonEl
+    if (jumpButton) {
+      jumpButton.removeEventListener('click', this.handleJumpButtonClick)
+      jumpButton.remove()
+      this.jumpButtonEl = undefined
+    }
 
-    button.removeEventListener('click', this.handleJumpButtonClick)
-    button.remove()
-    this.jumpButtonEl = undefined
+    const lootButton = this.testLootButtonEl
+    if (lootButton) {
+      lootButton.removeEventListener('click', this.handleTestLootButtonClick)
+      lootButton.remove()
+      this.testLootButtonEl = undefined
+    }
   }
+
+  private grantAllTestingRewards() {
+    const messages: string[] = []
+
+    const ownedWeaponIds = new Set<string>()
+    if (this.playerState.weapon?.id) ownedWeaponIds.add(this.playerState.weapon.id)
+    for (const weapon of this.playerState.weaponStash) {
+      ownedWeaponIds.add(weapon.id)
+    }
+    for (const weapon of weapons) {
+      if (weapon.id === 'bare-hands') continue
+      if (ownedWeaponIds.has(weapon.id)) continue
+      this.playerState.weaponStash.push(weapon)
+      ownedWeaponIds.add(weapon.id)
+      messages.push(`獲得武器：${weapon.name}`)
+    }
+
+    const ownedArmorIds = new Set<string>()
+    if (this.playerState.armor?.id) ownedArmorIds.add(this.playerState.armor.id)
+    for (const armor of this.playerState.armorStash) {
+      ownedArmorIds.add(armor.id)
+    }
+    for (const armor of armors) {
+      if (ownedArmorIds.has(armor.id)) continue
+      this.playerState.armorStash.push(armor)
+      ownedArmorIds.add(armor.id)
+      messages.push(`獲得防具：${armor.name}`)
+    }
+
+    const inventoryIds = new Set(this.playerState.inventory.map(entry => entry.def.id))
+    for (const item of items) {
+      if (inventoryIds.has(item.id)) continue
+      const quantity = item.stackable ? 3 : 1
+      const message = this.playerState.addItemToInventory(item, quantity)
+      if (message) messages.push(message)
+      inventoryIds.add(item.id)
+    }
+
+    for (const skill of skills) {
+      const alreadyKnown = this.playerState.knownSkills.some(entry => entry.id === skill.id)
+      if (alreadyKnown) continue
+      const message = this.playerState.learnSkill(skill.id)
+      if (message) messages.push(message)
+    }
+
+    if (!messages.length) {
+      messages.push('測試：所有資源已經擁有。')
+    } else {
+      messages.unshift('測試：已取得所有武器、防具、道具與技能。')
+    }
+
+    this.appendActionMessages(messages)
+    this.syncFloorLastAction()
+    draw(this)
+  }
+
 
   private ensureEndingTile() {
     if (this.floor !== 10) {
