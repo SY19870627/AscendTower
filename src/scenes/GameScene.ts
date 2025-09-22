@@ -485,7 +485,7 @@ export class GameScene extends Phaser.Scene {
 
     const finaleNpc: NpcDef = {
       id: 'ending',
-      name: '�𳻦^�n',
+      name: '塔頂旅者',
       lines: [...this.endingDialogueLines]
     }
 
