@@ -94,8 +94,8 @@ export class ShopOverlay {
 
   private createUI() {
     const { width, height } = this.host.scale
-    const panelWidth = 680
-    const panelHeight = 440
+    const panelWidth = 760
+    const panelHeight = 520
     const depthBase = 2600
 
     this.backdrop = this.host.add
@@ -112,63 +112,81 @@ export class ShopOverlay {
 
     const panelTop = height / 2 - panelHeight / 2
     const panelLeft = width / 2 - panelWidth / 2
+    const contentLeft = panelLeft + 36
 
     this.titleText = this.host.add
-      .text(width / 2, panelTop + 18, this.shop.title, { fontSize: '24px', color: '#ffe9a6' })
+      .text(width / 2, panelTop + 22, this.shop.title, { fontSize: '26px', color: '#ffe9a6' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.descriptionText = this.host.add
-      .text(panelLeft + 28, (this.titleText?.y ?? panelTop) + 46, this.shop.description, {
+      .text(contentLeft, (this.titleText?.y ?? panelTop) + 52, this.shop.description, {
         fontSize: '16px',
         color: '#d0ecff',
-        wordWrap: { width: panelWidth - 56 },
-        lineSpacing: 6
+        wordWrap: { width: panelWidth - 72 },
+        lineSpacing: 6,
       })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.coinText = this.host.add
-      .text(panelLeft + panelWidth - 180, panelTop + 28, '', { fontSize: '18px', color: '#ffd27f' })
+      .text(panelLeft + panelWidth - 40, panelTop + 32, '', { fontSize: '18px', color: '#ffd27f' })
+      .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
-    let optionsY = (this.descriptionText?.y ?? panelTop) + (this.descriptionText?.height ?? 0) + 28
+    const listTop = (this.descriptionText?.y ?? panelTop) + (this.descriptionText?.height ?? 0) + 32
+    const listWidth = Math.min(340, panelWidth - 220)
+    let optionsY = listTop
 
     this.optionTexts = this.entries.map((entry, idx) => {
       const qtyLabel = entry.offer.quantity && entry.offer.quantity > 1 ? ` x${entry.offer.quantity}` : ''
       const label = `${idx + 1}. ${entry.item.name}${qtyLabel} - ${entry.offer.price} 金幣`
       const text = this.host.add
-        .text(panelLeft + 36, optionsY, label, { fontSize: '18px', color: '#ffffff' })
+        .text(contentLeft, optionsY, label, {
+          fontSize: '18px',
+          color: '#ffffff',
+          wordWrap: { width: listWidth - 12 },
+          lineSpacing: 6,
+        })
         .setScrollFactor(0)
         .setDepth(depthBase + 2)
-      optionsY += text.height + 12
+      optionsY += text.height + 16
       return text
     })
 
+    const detailLeft = contentLeft + listWidth + 32
+    const detailWidth = Math.max(240, panelWidth - (detailLeft - panelLeft) - 36)
+    const detailTop = listTop
+
     this.detailText = this.host.add
-      .text(panelLeft + 36, panelTop + panelHeight - 132, '', {
+      .text(detailLeft, detailTop, '', {
         fontSize: '16px',
         color: '#cfe',
-        wordWrap: { width: panelWidth - 72 },
-        lineSpacing: 4
+        wordWrap: { width: detailWidth },
+        lineSpacing: 6,
       })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.resultText = this.host.add
-      .text(panelLeft + 36, panelTop + panelHeight - 88, '', {
+      .text(detailLeft, panelTop + panelHeight - 116, '', {
         fontSize: '15px',
         color: '#ffe9a6',
-        wordWrap: { width: panelWidth - 72 },
-        lineSpacing: 4
+        wordWrap: { width: detailWidth },
+        lineSpacing: 5,
       })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.instructionText = this.host.add
-      .text(width / 2, panelTop + panelHeight - 40, '', { fontSize: '14px', color: '#9fd' })
+      .text(width / 2, panelTop + panelHeight - 52, '', {
+        fontSize: '14px',
+        color: '#9fd',
+        wordWrap: { width: panelWidth - 96 },
+        align: 'center',
+      })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)

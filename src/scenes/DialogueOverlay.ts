@@ -76,8 +76,8 @@ export class DialogueOverlay {
 
   private createUI() {
     const { width, height } = this.host.scale
-    const panelWidth = 560
-    const panelHeight = 280
+    const panelWidth = 660
+    const panelHeight = 340
     const depthBase = 3100
 
     this.backdrop = this.host.add
@@ -95,26 +95,29 @@ export class DialogueOverlay {
     const panelTop = height / 2 - panelHeight / 2
 
     this.nameText = this.host.add
-      .text(width / 2, panelTop + 24, this.npc?.name ?? '???', { fontSize: '22px', color: '#ffe9a6' })
+      .text(width / 2, panelTop + 26, this.npc?.name ?? '???', { fontSize: '24px', color: '#ffe9a6' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.bodyText = this.host.add
-      .text(width / 2, panelTop + 80, '', {
+      .text(width / 2, panelTop + 90, '', {
         fontSize: '18px',
         color: '#cfe',
         align: 'center',
-        wordWrap: { width: panelWidth - 60 }
+        wordWrap: { width: panelWidth - 96 },
+        lineSpacing: 8,
       })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.instructionText = this.host.add
-      .text(width / 2, panelTop + panelHeight - 48, '', {
+      .text(width / 2, panelTop + panelHeight - 56, '', {
         fontSize: '14px',
-        color: '#cfe'
+        color: '#cfe',
+        wordWrap: { width: panelWidth - 80 },
+        align: 'center',
       })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)

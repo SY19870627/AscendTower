@@ -80,8 +80,8 @@ export class EventOverlay {
 
   private createUI() {
     const { width, height } = this.host.scale
-    const panelWidth = 660
-    const panelHeight = 420
+    const panelWidth = 720
+    const panelHeight = 500
     const depthBase = 2400
 
     this.backdrop = this.host.add
@@ -98,47 +98,61 @@ export class EventOverlay {
 
     const panelTop = height / 2 - panelHeight / 2
     const panelLeft = width / 2 - panelWidth / 2
+    const contentLeft = panelLeft + 36
 
     this.titleText = this.host.add
-      .text(width / 2, panelTop + 18, this.event.title, { fontSize: '24px', color: '#ffffff' })
+      .text(width / 2, panelTop + 22, this.event.title, { fontSize: '26px', color: '#ffffff' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.descriptionText = this.host.add
-      .text(panelLeft + 28, (this.titleText?.y ?? panelTop) + 48, this.event.description, {
+      .text(contentLeft, (this.titleText?.y ?? panelTop) + 56, this.event.description, {
         fontSize: '16px',
         color: '#cfe',
-        wordWrap: { width: panelWidth - 56 },
-        lineSpacing: 6
+        wordWrap: { width: panelWidth - 72 },
+        lineSpacing: 6,
       })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
-    let optionsY = (this.descriptionText?.y ?? panelTop) + (this.descriptionText?.height ?? 0) + 24
+    let optionsY = (this.descriptionText?.y ?? panelTop) + (this.descriptionText?.height ?? 0) + 30
+    const optionWrapWidth = panelWidth - 86
 
     this.optionTexts = this.event.options.map((option, idx) => {
       const text = this.host.add
-        .text(panelLeft + 40, optionsY, `${idx + 1}. ${option.label}`, { fontSize: '18px', color: '#ffffff' })
+        .text(contentLeft, optionsY, `${idx + 1}. ${option.label}`, {
+          fontSize: '18px',
+          color: '#ffffff',
+          wordWrap: { width: optionWrapWidth },
+          lineSpacing: 6,
+        })
         .setScrollFactor(0)
         .setDepth(depthBase + 2)
-      optionsY += text.height + 10
+      optionsY += text.height + 16
       return text
     })
 
+    const resultTop = panelTop + panelHeight - 148
+
     this.resultText = this.host.add
-      .text(width / 2, panelTop + panelHeight - 120, '', {
+      .text(width / 2, resultTop, '', {
         fontSize: '16px',
         color: '#ffe9a6',
-        wordWrap: { width: panelWidth - 60 },
-        align: 'center' as const
+        wordWrap: { width: panelWidth - 80 },
+        align: 'center',
       })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.instructionText = this.host.add
-      .text(width / 2, panelTop + panelHeight - 54, '', { fontSize: '14px', color: '#9fd' })
+      .text(width / 2, panelTop + panelHeight - 60, '', {
+        fontSize: '14px',
+        color: '#9fd',
+        wordWrap: { width: panelWidth - 96 },
+        align: 'center',
+      })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)

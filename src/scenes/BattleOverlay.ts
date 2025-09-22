@@ -53,6 +53,15 @@ export class BattleOverlay {
   private logText?: Phaser.GameObjects.Text
   private instructionText?: Phaser.GameObjects.Text
 
+  private panelWidth = 0
+  private panelHeight = 0
+  private panelTop = 0
+  private panelLeft = 0
+  private contentLeft = 0
+  private contentRight = 0
+  private columnWidth = 0
+  private logTopBase = 0
+
   constructor(scene: GameScene) {
     this.host = scene
   }
@@ -137,8 +146,8 @@ export class BattleOverlay {
 
   private createUI() {
     const { width, height } = this.host.scale
-    const panelWidth = 680
-    const panelHeight = 440
+    this.panelWidth = 820
+    this.panelHeight = 520
     const depthBase = 2600
 
     this.backdrop = this.host.add
@@ -148,50 +157,64 @@ export class BattleOverlay {
       .setInteractive({ useHandCursor: false })
 
     this.panel = this.host.add
-      .rectangle(width / 2, height / 2, panelWidth, panelHeight, 0x101b24, 0.94)
+      .rectangle(width / 2, height / 2, this.panelWidth, this.panelHeight, 0x101b24, 0.94)
       .setStrokeStyle(2, 0xffb347, 0.85)
       .setScrollFactor(0)
       .setDepth(depthBase + 1)
 
-    const panelTop = height / 2 - panelHeight / 2
-    const panelLeft = width / 2 - panelWidth / 2
+    this.panelTop = height / 2 - this.panelHeight / 2
+    this.panelLeft = width / 2 - this.panelWidth / 2
+    this.contentLeft = this.panelLeft + 36
+    this.contentRight = this.panelLeft + this.panelWidth - 36
+    this.columnWidth = this.panelWidth / 2 - 72
+    this.logTopBase = this.panelTop + 292
 
     this.titleText = this.host.add
-      .text(width / 2, panelTop + 18, `對戰 ${this.enemy.name}`, { fontSize: '24px', color: '#ffe9a6' })
+      .text(width / 2, this.panelTop + 24, `戰鬥 ${this.enemy.name}`, { fontSize: '26px', color: '#ffe9a6' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.playerText = this.host.add
-      .text(panelLeft + 32, panelTop + 60, '', {
+      .text(this.contentLeft, this.panelTop + 72, '', {
         fontSize: '16px',
         color: '#cfe',
-        lineSpacing: 6
+        lineSpacing: 6,
+        wordWrap: { width: this.columnWidth },
       })
+      .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.enemyText = this.host.add
-      .text(panelLeft + panelWidth - 250, panelTop + 60, '', {
+      .text(this.contentRight, this.panelTop + 72, '', {
         fontSize: '16px',
         color: '#fcd',
-        lineSpacing: 6
+        lineSpacing: 6,
+        wordWrap: { width: this.columnWidth },
+        align: 'right',
       })
+      .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.logText = this.host.add
-      .text(panelLeft + 32, panelTop + panelHeight - 150, '', {
+      .text(this.contentLeft, this.logTopBase, '', {
         fontSize: '15px',
         color: '#ffe9a6',
-        wordWrap: { width: panelWidth - 64 },
-        lineSpacing: 4
+        wordWrap: { width: this.panelWidth - 72 },
+        lineSpacing: 4,
       })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.instructionText = this.host.add
-      .text(width / 2, panelTop + panelHeight - 40, '', { fontSize: '14px', color: '#9fd' })
+      .text(width / 2, this.panelTop + this.panelHeight - 52, '', {
+        fontSize: '14px',
+        color: '#9fd',
+        wordWrap: { width: this.panelWidth - 80 },
+        align: 'center',
+      })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
@@ -244,12 +267,25 @@ export class BattleOverlay {
 
     const enemyLines = [
       this.enemy.name,
-      `生命：${this.enemyHp}`,
+      `生命：${Math.max(this.enemyHp, 0)}`,
       `攻擊：${this.enemy.base.atk}`,
       `防禦：${this.enemy.base.def}`
     ]
 
     this.enemyText.setText(enemyLines.join('\n'))
+
+    const statsBottom = Math.max(
+      this.playerText.y + this.playerText.height,
+      this.enemyText.y + this.enemyText.height
+    )
+    const availableBottom = this.panelTop + this.panelHeight - 136
+    const baseY = this.logTopBase || (this.panelTop + 292)
+    const logY = Math.min(Math.max(baseY, statsBottom + 24), availableBottom)
+    this.logText?.setY(logY)
+
+    const logLines = this.logs.length ? this.logs : ['……']
+    this.logText?.setText(logLines.join('\n'))
+
     this.updateInstructions()
   }
 
