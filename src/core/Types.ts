@@ -23,7 +23,17 @@ export interface EnemyDef {
   minFloor?: number
 }
 export interface WeaponSpecial { name: string; damage: number; chargeMax: number; desc?: string }
-export interface WeaponDef { id: string; name: string; atk: number; special: WeaponSpecial; desc?: string; minFloor?: number }
+export type WeaponAttributeId = 'armor-break'
+
+export interface WeaponAttributeDef {
+  id: WeaponAttributeId
+  name: string
+  description: string
+  chargeMax: number
+  effect: 'ignore-defense'
+}
+
+export interface WeaponDef { id: string; name: string; atk: number; special: WeaponSpecial; desc?: string; minFloor?: number; attributeId?: WeaponAttributeId }
 export interface ArmorDef { id: string; name: string; def: number; shield?: number; desc?: string; minFloor?: number }
 export interface PlayerStats { hp: number; mp: number }
 export interface ItemGrant { id: string; quantity?: number }

@@ -4,6 +4,8 @@ import { enemies } from '../content/enemies'
 import type { SkillDef } from '../core/Types'
 import { getEffectiveCombatStats } from './combat'
 
+import { getWeaponAttribute, getWeaponAttributeChargeMax, isWeaponAttributeReady } from '../game/weapons/weaponAttributes'
+
 const SKILL_HOTKEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U']
 
 type DirectionKey = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
@@ -368,6 +370,15 @@ export function draw(scene: any) {
       statsLines.push(`  蓄能 ${currentCharge}/${chargeMax}`)
       if (currentCharge >= chargeMax) statsLines.push('  特技 就緒')
       if (special.desc) statsLines.push(`  ${special.desc}`)
+    }
+    const attribute = getWeaponAttribute(weapon.attributeId ?? null)
+    if (attribute) {
+      const attributeMax = Math.max(getWeaponAttributeChargeMax(attribute), 1)
+      const attributeCharge = Math.min(Math.max(scene.weaponAttributeCharge ?? 0, 0), attributeMax)
+      const attributeReady = isWeaponAttributeReady(attribute, attributeCharge)
+      statsLines.push(`  屬性 ${attribute.name}`)
+      statsLines.push(`  蓄能 ${attributeCharge}/${attributeMax}${attributeReady ? ' 就緒' : ''}`)
+      if (attribute.description) statsLines.push(`  ${attribute.description}`)
     }
     if (weapon.desc) statsLines.push(`  ${weapon.desc}`)
   }

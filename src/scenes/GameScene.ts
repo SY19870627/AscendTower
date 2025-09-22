@@ -13,6 +13,7 @@ import type {
   Tile
 } from '../core/Types'
 import { PlayerState, type InventoryEntry, type ActiveStatus, type SerializedPlayerState } from '../game/player/PlayerState'
+import { getWeaponAttribute, getWeaponAttributeChargeMax } from '../game/weapons/weaponAttributes'
 import { handleInput } from '../systems/input'
 import { draw } from '../systems/render'
 import { spawnWeapons, spawnArmors, spawnItems, makePosKey } from '../systems/spawning'
@@ -167,6 +168,17 @@ export class GameScene extends Phaser.Scene {
 
   set weaponCharge(value: number) {
     this.playerState.weaponCharge = Math.max(value, 0)
+  }
+
+  get weaponAttributeCharge(): number {
+    return this.playerState.weaponAttributeCharge
+  }
+
+  set weaponAttributeCharge(value: number) {
+    const attribute = this.playerState.weapon?.attributeId
+    const def = getWeaponAttribute(attribute ?? null)
+    const clamped = Math.max(0, Math.floor(value))
+    this.playerState.weaponAttributeCharge = def ? Math.min(clamped, getWeaponAttributeChargeMax(def)) : 0
   }
 
   get coins(): number {
@@ -1056,7 +1068,8 @@ export class GameScene extends Phaser.Scene {
         hp: this.playerStats.hp,
         weapon: this.playerWeapon,
         armor: this.playerArmor,
-        weaponCharge: this.weaponCharge
+        weaponCharge: this.weaponCharge,
+        weaponAttributeCharge: this.weaponAttributeCharge
       }
     }
 
@@ -1072,10 +1085,11 @@ export class GameScene extends Phaser.Scene {
     return selection[index]
   }
 
-  finishBattle(outcome: { enemyPos: Vec2; remainingHp: number; weaponCharge: number }) {
-    const { enemyPos, remainingHp, weaponCharge } = outcome
+  finishBattle(outcome: { enemyPos: Vec2; remainingHp: number; weaponCharge: number; weaponAttributeCharge: number }) {
+    const { enemyPos, remainingHp, weaponCharge, weaponAttributeCharge } = outcome
     this.playerStats.hp = Math.max(Math.floor(remainingHp), 0)
     this.weaponCharge = Math.max(weaponCharge, 0)
+    this.weaponAttributeCharge = Math.max(weaponAttributeCharge, 0)
 
     this.grid.movePlayer(enemyPos)
     this.grid.enemyPos = this.grid.enemyPos.filter(p => p.x !== enemyPos.x || p.y !== enemyPos.y)

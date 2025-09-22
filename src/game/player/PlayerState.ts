@@ -12,6 +12,7 @@ import { getStatusDef } from '../../content/statuses'
 import { getSkillDef, skills } from '../../content/skills'
 import { getWeaponDef } from '../../content/weapons'
 import { getArmorDef } from '../../content/armors'
+import { getWeaponAttribute, normalizeWeaponAttributeCharge } from '../weapons/weaponAttributes'
 
 export type InventoryEntry = { def: ItemDef; quantity: number }
 export type ActiveStatus = { def: StatusDef; remaining: number }
@@ -24,6 +25,7 @@ export type SerializedPlayerState = {
   weaponId?: string | null
   armorId?: string | null
   weaponCharge?: number
+  weaponAttributeCharge?: number
   weaponStash?: string[]
   armorStash?: string[]
   coins?: number
@@ -59,6 +61,7 @@ export class PlayerState {
   weapon: WeaponDef | null = null
   armor: ArmorDef | null = null
   weaponCharge = 0
+  weaponAttributeCharge = 0
   weaponStash: WeaponDef[] = []
   armorStash: ArmorDef[] = []
   coins = DEFAULT_COINS
@@ -72,6 +75,7 @@ export class PlayerState {
   private equipDefaultGear() {
     this.weapon = getWeaponDef(DEFAULT_WEAPON_ID) ?? null
     this.weaponCharge = 0
+    this.weaponAttributeCharge = 0
     this.armor = getArmorDef(DEFAULT_ARMOR_ID) ?? null
   }
 
@@ -95,6 +99,7 @@ export class PlayerState {
     this.armor = null
     this.armorStash = []
     this.weaponCharge = 0
+    this.weaponAttributeCharge = 0
     this.coins = this.defaults.startingCoins
     this.inventory = []
     this.activeStatuses = []
@@ -128,6 +133,7 @@ export class PlayerState {
       weaponId: this.weapon?.id ?? null,
       armorId: this.armor?.id ?? null,
       weaponCharge: Math.max(0, Math.floor(this.weaponCharge)),
+      weaponAttributeCharge: Math.max(0, Math.floor(this.weaponAttributeCharge)),
       weaponStash: this.weaponStash.map(weapon => weapon.id),
       armorStash: this.armorStash.map(armor => armor.id),
       coins: Math.max(0, Math.floor(this.coins)),
@@ -160,6 +166,10 @@ export class PlayerState {
     } else if (!this.weapon) {
       this.weaponCharge = 0
     }
+
+    const weaponAttribute = getWeaponAttribute(this.weapon?.attributeId ?? null)
+    const rawAttributeCharge = Math.max(0, Math.floor(state.weaponAttributeCharge ?? 0))
+    this.weaponAttributeCharge = normalizeWeaponAttributeCharge(weaponAttribute, rawAttributeCharge)
 
     this.armor = state.armorId ? getArmorDef(state.armorId) ?? null : null
 
@@ -209,6 +219,7 @@ export class PlayerState {
     if (!this.weapon) {
       this.weapon = getWeaponDef(DEFAULT_WEAPON_ID) ?? null
       this.weaponCharge = 0
+      this.weaponAttributeCharge = 0
     }
     if (!this.armor) {
       this.armor = getArmorDef(DEFAULT_ARMOR_ID) ?? null
@@ -280,6 +291,7 @@ export class PlayerState {
     if (previous) this.ensureWeaponStored(previous)
     this.weapon = weapon
     this.weaponCharge = 0
+    this.weaponAttributeCharge = 0
     this.ensureWeaponStored(weapon)
     return { replaced: previous }
   }
@@ -299,6 +311,7 @@ export class PlayerState {
     if (previous && previous.id !== weapon.id) this.ensureWeaponStored(previous)
     this.weapon = weapon
     this.weaponCharge = 0
+    this.weaponAttributeCharge = 0
     return weapon
   }
 

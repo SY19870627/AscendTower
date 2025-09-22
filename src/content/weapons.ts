@@ -19,6 +19,7 @@ const catalog: WeaponDef[] = [
     id: 'iron-spear',
     name: '鐵槍',
     atk: 8,
+    attributeId: 'armor-break',
     special: { name: '貫穿突刺', damage: 16, chargeMax: 4, desc: '直線突進，一擊穿透要害。' },
     desc: '攻守距離平衡。',
     minFloor: 2

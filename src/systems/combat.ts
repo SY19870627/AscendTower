@@ -1,3 +1,4 @@
+import { advanceWeaponAttributeCharge, getWeaponAttribute, getWeaponAttributeChargeMax } from '../game/weapons/weaponAttributes'
 import type { EnemyDef } from '../core/Types'
 
 export type CombatOutcome = {
@@ -6,6 +7,8 @@ export type CombatOutcome = {
   rounds: number
   specialUses: number
   finalCharge: number
+  attributeTriggers: number
+  finalAttributeCharge: number
   playerHpRemaining: number
   shieldRemaining: number
 }
@@ -29,6 +32,11 @@ export function simulateCombat(scene: any, enemy: EnemyDef): CombatOutcome {
   const special = weapon?.special
   const chargeMax = special?.chargeMax ?? 0
   let charge = special ? Math.min(scene.weaponCharge, chargeMax) : 0
+  const attribute = getWeaponAttribute(weapon?.attributeId ?? null)
+  const attributeChargeMax = getWeaponAttributeChargeMax(attribute)
+  const initialAttributeCharge = attribute ? Math.min(Math.max(scene.weaponAttributeCharge ?? 0, 0), attributeChargeMax) : 0
+  let attributeCharge = initialAttributeCharge
+  let attributeTriggers = 0
   const combatStats = getEffectiveCombatStats(scene)
   const baseAtk = combatStats.atk
   const playerDef = combatStats.def
@@ -44,16 +52,26 @@ export function simulateCombat(scene: any, enemy: EnemyDef): CombatOutcome {
 
   while (true) {
     rounds++
-    let damage = Math.max(1, baseAtk - enemyDef)
+    let attackPower = baseAtk
     if (hasSpecial) {
       if (charge >= chargeMax) {
-        damage = Math.max(1, (special?.damage ?? baseAtk) - enemyDef)
+        attackPower = special?.damage ?? baseAtk
         charge = 0
         specialUses++
       } else {
         charge = Math.min(charge + 1, chargeMax)
       }
     }
+    let ignoreDefense = false
+    if (attribute) {
+      const attributeResult = advanceWeaponAttributeCharge(attribute, attributeCharge)
+      attributeCharge = attributeResult.newCharge
+      ignoreDefense = attributeResult.ignoreDefense
+      if (attributeResult.triggered) attributeTriggers++
+    } else {
+      attributeCharge = 0
+    }
+    const damage = Math.max(1, ignoreDefense ? attackPower : attackPower - enemyDef)
     enemyHp -= damage
     if (enemyHp <= 0) break
 
@@ -76,6 +94,9 @@ export function simulateCombat(scene: any, enemy: EnemyDef): CombatOutcome {
   const finalCharge = hasSpecial
     ? (canWin ? Math.min(charge, chargeMax) : Math.min(scene.weaponCharge, chargeMax))
     : 0
+  const finalAttributeCharge = attribute
+    ? Math.min(Math.max(attributeCharge, 0), attributeChargeMax)
+    : 0
   const shieldRemainingOutput = Math.max(shieldRemaining, 0)
-  return { canWin, lossHp, rounds, specialUses, finalCharge, playerHpRemaining, shieldRemaining: shieldRemainingOutput }
+  return { canWin, lossHp, rounds, specialUses, finalCharge, attributeTriggers, finalAttributeCharge, playerHpRemaining, shieldRemaining: shieldRemainingOutput }
 }
