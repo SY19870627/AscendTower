@@ -13,6 +13,7 @@
     "vite": "^7.1.6"
   },
   "dependencies": {
-    "phaser": "^3.90.0"
+    "phaser": "^3.90.0",
+    "pngjs": "^7.0.0"
   }
 }
