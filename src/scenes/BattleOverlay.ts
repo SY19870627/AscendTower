@@ -1,8 +1,8 @@
 import Phaser from 'phaser'
-import type { ArmorDef, EnemyDef, Vec2, WeaponAttributeDef, WeaponDef } from '../core/Types'
+import type { ArmorDef, EnemyDef, Vec2, WeaponAttributeDef, WeaponAttributeId, WeaponDef } from '../core/Types'
 import type { GameScene } from './GameScene'
 
-import { advanceWeaponAttributeCharge, getWeaponAttribute, getWeaponAttributeChargeMax, isWeaponAttributeReady } from '../game/weapons/weaponAttributes'
+import { advanceWeaponAttributeStates, buildWeaponAttributeStates, type WeaponAttributeRuntimeState } from '../game/weapons/weaponAttributes'
 
 export type BattleInitData = {
   enemy: EnemyDef
@@ -11,7 +11,8 @@ export type BattleInitData = {
     hp: number
     weapon: WeaponDef | null
     armor: ArmorDef | null
-    weaponAttributeCharge: number
+    weaponAttributeCharges?: [WeaponAttributeId, number][]
+    weaponAttributeCharge?: number
   }
 }
 
@@ -27,9 +28,7 @@ export class BattleOverlay {
   startingHp = 0
   playerAtkBase = 0
   playerDef = 0
-  weaponAttribute: WeaponAttributeDef | null = null
-  weaponAttributeCharge = 0
-  weaponAttributeChargeMax = 0
+  weaponAttributeStates: WeaponAttributeRuntimeState[] = []
   enemyHp = 0
   battleStarted = false
   battleEnded = false
@@ -78,12 +77,29 @@ export class BattleOverlay {
     this.startingHp = data.player.hp
     this.playerAtkBase = (data.player.weapon?.atk ?? 0) + (statusBonuses.atk ?? 0)
     this.playerDef = (data.player.armor?.def ?? 0) + (statusBonuses.def ?? 0)
-    this.weaponAttribute = getWeaponAttribute(this.playerWeapon?.attributeId ?? null)
-    this.weaponAttributeChargeMax = getWeaponAttributeChargeMax(this.weaponAttribute)
-    const initialAttributeCharge = Math.max(0, Math.floor(data.player.weaponAttributeCharge ?? 0))
-    this.weaponAttributeCharge = this.weaponAttribute
-      ? Math.min(initialAttributeCharge, this.weaponAttributeChargeMax)
-      : 0
+
+    const chargeEntries = Array.isArray(data.player.weaponAttributeCharges) ? data.player.weaponAttributeCharges : []
+    let initialChargeSource: Map<WeaponAttributeId, number> | null = null
+    if (chargeEntries.length) {
+      const sanitized = chargeEntries
+        .filter(entry => Array.isArray(entry) && entry.length >= 2 && typeof entry[0] === 'string')
+        .map(entry => {
+          const [id, value] = entry as [WeaponAttributeId, number]
+          return [id, Math.max(0, Math.floor(value ?? 0))] as [WeaponAttributeId, number]
+        })
+      if (sanitized.length) {
+        initialChargeSource = new Map<WeaponAttributeId, number>(sanitized)
+      }
+    } else if (typeof data.player.weaponAttributeCharge === 'number') {
+      const fallbackId = this.playerWeapon?.attributeIds?.[0]
+      if (fallbackId) {
+        const fallbackValue = Math.max(0, Math.floor(data.player.weaponAttributeCharge ?? 0))
+        initialChargeSource = new Map<WeaponAttributeId, number>([[fallbackId, fallbackValue]])
+      }
+    }
+    this.weaponAttributeStates = this.playerWeapon
+      ? buildWeaponAttributeStates(this.playerWeapon.attributeIds ?? [], initialChargeSource)
+      : []
 
     this.enemyHp = this.enemy.base.hp
     this.round = 0
@@ -127,9 +143,7 @@ export class BattleOverlay {
     this.logText = undefined
     this.instructionText = undefined
     this.logs = []
-    this.weaponAttribute = null
-    this.weaponAttributeCharge = 0
-    this.weaponAttributeChargeMax = 0
+    this.weaponAttributeStates = []
   }
 
   private createUI() {

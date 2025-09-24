@@ -11,10 +11,11 @@ import type {
   ShopDef,
   NpcDef,
   SkillDef,
-  Tile
+  Tile,
+  WeaponAttributeId,
+  WeaponAttributeChargeMap
 } from '../core/Types'
 import { PlayerState, type InventoryEntry, type ActiveStatus, type SerializedPlayerState } from '../game/player/PlayerState'
-import { getWeaponAttribute, getWeaponAttributeChargeMax } from '../game/weapons/weaponAttributes'
 import { handleInput } from '../systems/input'
 import { draw } from '../systems/render'
 import { spawnWeapons, spawnArmors, spawnItems, makePosKey } from '../systems/spawning'
@@ -174,10 +175,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   set weaponAttributeCharge(value: number) {
-    const attribute = this.playerState.weapon?.attributeId
-    const def = getWeaponAttribute(attribute ?? null)
-    const clamped = Math.max(0, Math.floor(value))
-    this.playerState.weaponAttributeCharge = def ? Math.min(clamped, getWeaponAttributeChargeMax(def)) : 0
+    this.playerState.weaponAttributeCharge = value
+  }
+
+  get weaponAttributeCharges(): Map<WeaponAttributeId, number> {
+    return this.playerState.getWeaponAttributeCharges()
+  }
+
+  set weaponAttributeCharges(value: Map<WeaponAttributeId, number> | WeaponAttributeChargeMap | null) {
+    this.playerState.setWeaponAttributeCharges(value ?? null)
   }
 
   get coins(): number {
@@ -1146,7 +1152,7 @@ export class GameScene extends Phaser.Scene {
         hp: this.playerStats.hp,
         weapon: this.playerWeapon,
         armor: this.playerArmor,
-        weaponAttributeCharge: this.weaponAttributeCharge
+        weaponAttributeCharges: Array.from(this.weaponAttributeCharges.entries())
       }
     }
 
@@ -1162,10 +1168,28 @@ export class GameScene extends Phaser.Scene {
     return selection[index]
   }
 
-  finishBattle(outcome: { enemy: EnemyDef; enemyPos: Vec2; remainingHp: number; weaponAttributeCharge: number }) {
-    const { enemy, enemyPos, remainingHp, weaponAttributeCharge } = outcome
+  finishBattle(outcome: {
+    enemy: EnemyDef
+    enemyPos: Vec2
+    remainingHp: number
+    weaponAttributeCharges: Array<[WeaponAttributeId, number]> | Map<WeaponAttributeId, number> | WeaponAttributeChargeMap | null
+  }) {
+    const { enemy, enemyPos, remainingHp, weaponAttributeCharges } = outcome
     this.playerStats.hp = Math.max(Math.floor(remainingHp), 0)
-    this.weaponAttributeCharge = Math.max(weaponAttributeCharge, 0)
+
+    let normalizedCharges: Map<WeaponAttributeId, number> | WeaponAttributeChargeMap | null = null
+    if (weaponAttributeCharges instanceof Map) {
+      normalizedCharges = weaponAttributeCharges
+    } else if (Array.isArray(weaponAttributeCharges)) {
+      const sanitized = weaponAttributeCharges.map(([id, value]) => [
+        id,
+        Math.max(0, Math.floor(value ?? 0))
+      ]) as Array<[WeaponAttributeId, number]>
+      normalizedCharges = new Map<WeaponAttributeId, number>(sanitized)
+    } else if (weaponAttributeCharges) {
+      normalizedCharges = weaponAttributeCharges
+    }
+    this.weaponAttributeCharges = normalizedCharges
 
     this.grid.movePlayer(enemyPos)
     this.grid.enemyPos = this.grid.enemyPos.filter(p => p.x !== enemyPos.x || p.y !== enemyPos.y)

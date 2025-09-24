@@ -17,7 +17,7 @@ const catalog: WeaponDef[] = [
     id: 'iron-spear',
     name: '鐵槍',
     atk: 8,
-    attributeId: 'armor-break',
+    attributeIds: ['armor-break'],
     desc: '攻守距離平衡。',
     minFloor: 2
   },

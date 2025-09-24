@@ -24,6 +24,8 @@ export interface EnemyDef {
   minFloor?: number
 }
 export type WeaponAttributeId = 'armor-break'
+export type WeaponAttributeChargeMap = Partial<Record<WeaponAttributeId, number>>
+
 
 export interface WeaponAttributeDef {
   id: WeaponAttributeId
@@ -33,7 +35,7 @@ export interface WeaponAttributeDef {
   effect: 'ignore-defense'
 }
 
-export interface WeaponDef { id: string; name: string; atk: number; desc?: string; minFloor?: number; attributeId?: WeaponAttributeId }
+export interface WeaponDef { id: string; name: string; atk: number; desc?: string; minFloor?: number; attributeIds?: WeaponAttributeId[] }
 export interface ArmorDef { id: string; name: string; def: number; desc?: string; minFloor?: number }
 export interface PlayerStats { hp: number; mp: number }
 export interface ItemGrant { id: string; quantity?: number }
