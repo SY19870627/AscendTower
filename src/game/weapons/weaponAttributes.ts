@@ -4,11 +4,36 @@ const definitions: WeaponAttributeDef[] = [
   {
     id: 'armor-break',
     name: '破甲',
-    description: '攻擊時累積能量，滿載後使下一擊無視敵方防禦。',
+    description: '每次攻擊蓄力，充滿後使下一擊無視敵方防禦。',
     chargeMax: 3,
     effect: 'ignore-defense',
   },
+  {
+    id: 'fury-strike',
+    name: '狂怒重擊',
+    description: '蓄滿後爆發額外攻擊力，造成追加傷害。',
+    chargeMax: 2,
+    effect: 'bonus-damage',
+    bonusDamage: 4,
+  },
+  {
+    id: 'vampiric-edge',
+    name: '血影汲取',
+    description: '蓄力完成後吸收敵血，回復自身生命值。',
+    chargeMax: 4,
+    effect: 'life-steal',
+    healAmount: 4,
+  },
+  {
+    id: 'storm-surge',
+    name: '雷霆奔湧',
+    description: '迅速蓄能，經常觸發以追加少量雷擊傷害。',
+    chargeMax: 1,
+    effect: 'bonus-damage',
+    bonusDamage: 2,
+  },
 ]
+
 
 export const weaponAttributes = definitions
 export const weaponAttributesById = new Map<WeaponAttributeId, WeaponAttributeDef>(
@@ -71,6 +96,8 @@ export function normalizeWeaponAttributeCharges(
 export type WeaponAttributeAttackResult = {
   triggered: boolean
   ignoreDefense: boolean
+  bonusDamage: number
+  lifeSteal: number
   newCharge: number
 }
 
@@ -79,17 +106,31 @@ export function advanceWeaponAttributeCharge(
   currentCharge: number
 ): WeaponAttributeAttackResult {
   if (!attribute) {
-    return { triggered: false, ignoreDefense: false, newCharge: 0 }
+    return { triggered: false, ignoreDefense: false, bonusDamage: 0, lifeSteal: 0, newCharge: 0 }
   }
   const max = getWeaponAttributeChargeMax(attribute)
   if (max <= 0) {
-    return { triggered: false, ignoreDefense: false, newCharge: 0 }
+    return { triggered: false, ignoreDefense: false, bonusDamage: 0, lifeSteal: 0, newCharge: 0 }
   }
   const nextCharge = Math.min(currentCharge + 1, max)
   const triggered = nextCharge >= max
+  let bonusDamage = 0
+  let lifeSteal = 0
+  let ignoreDefense = false
+  if (triggered) {
+    if (attribute.effect === 'ignore-defense') {
+      ignoreDefense = true
+    } else if (attribute.effect === 'bonus-damage') {
+      bonusDamage = Math.max(attribute.bonusDamage ?? 0, 0)
+    } else if (attribute.effect === 'life-steal') {
+      lifeSteal = Math.max(attribute.healAmount ?? 0, 0)
+    }
+  }
   return {
     triggered,
-    ignoreDefense: triggered && attribute.effect === 'ignore-defense',
+    ignoreDefense,
+    bonusDamage,
+    lifeSteal,
     newCharge: triggered ? 0 : nextCharge,
   }
 }
@@ -109,7 +150,40 @@ export type AdvanceWeaponAttributesResult = {
   states: WeaponAttributeRuntimeState[]
   triggered: WeaponAttributeDef[]
   ignoreDefense: boolean
+  bonusDamage: number
+  lifeSteal: number
 }
+
+export function advanceWeaponAttributeStates(
+  states: WeaponAttributeRuntimeState[]
+): AdvanceWeaponAttributesResult {
+  if (!states.length) {
+    return { states, triggered: [], ignoreDefense: false, bonusDamage: 0, lifeSteal: 0 }
+  }
+  const updated: WeaponAttributeRuntimeState[] = []
+  const triggered: WeaponAttributeDef[] = []
+  let ignoreDefense = false
+  let bonusDamage = 0
+  let lifeSteal = 0
+  for (const state of states) {
+    const result = advanceWeaponAttributeCharge(state.def, state.charge)
+    if (result.triggered) {
+      triggered.push(state.def)
+      bonusDamage += result.bonusDamage
+      lifeSteal += result.lifeSteal
+    }
+    if (result.ignoreDefense) {
+      ignoreDefense = true
+    }
+    updated.push({
+      def: state.def,
+      charge: result.newCharge,
+      chargeMax: state.chargeMax,
+    })
+  }
+  return { states: updated, triggered, ignoreDefense, bonusDamage, lifeSteal }
+}
+
 
 export function buildWeaponAttributeStates(
   ids: Iterable<WeaponAttributeId> | null,
@@ -123,31 +197,5 @@ export function buildWeaponAttributeStates(
     charge: normalized[attribute.id] ?? 0,
     chargeMax: getWeaponAttributeChargeMax(attribute),
   }))
-}
-
-export function advanceWeaponAttributeStates(
-  states: WeaponAttributeRuntimeState[]
-): AdvanceWeaponAttributesResult {
-  if (!states.length) {
-    return { states, triggered: [], ignoreDefense: false }
-  }
-  const updated: WeaponAttributeRuntimeState[] = []
-  const triggered: WeaponAttributeDef[] = []
-  let ignoreDefense = false
-  for (const state of states) {
-    const result = advanceWeaponAttributeCharge(state.def, state.charge)
-    if (result.triggered) {
-      triggered.push(state.def)
-    }
-    if (result.ignoreDefense) {
-      ignoreDefense = true
-    }
-    updated.push({
-      def: state.def,
-      charge: result.newCharge,
-      chargeMax: state.chargeMax,
-    })
-  }
-  return { states: updated, triggered, ignoreDefense }
 }
 

@@ -104,7 +104,7 @@ export class PlayerState {
       return
     }
     const [attribute] = getWeaponAttributes([firstId])
-    const normalized = normalizeWeaponAttributeCharge(attribute ?? null, value)
+    const normalized = normalizeWeaponAttributeCharge(attribute ?? null, value ?? 0)
     this.weaponAttributeCharges.set(firstId, normalized)
   }
 

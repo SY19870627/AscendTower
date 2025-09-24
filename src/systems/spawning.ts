@@ -42,7 +42,7 @@ export function pickupWeapon(scene: any, pos: Vec2) {
     scene.acquireWeapon(weapon)
   } else {
     scene.playerWeapon = weapon
-    scene.weaponAttributeCharge = 0
+    scene.weaponAttributeCharges = null
   }
   scene.weaponDrops.delete(key)
   scene.cameras.main.flash(120, 80, 180, 255)

@@ -228,16 +228,18 @@ export class BattleOverlay {
     const weaponLines: string[] = []
     if (this.playerWeapon) {
       weaponLines.push(`武器：${this.playerWeapon.name}（攻擊 ${this.playerAtkBase}）`)
-      if (this.weaponAttribute) {
-        const attributeReady = isWeaponAttributeReady(this.weaponAttribute, this.weaponAttributeCharge)
-        const attributeMax = Math.max(this.weaponAttributeChargeMax, 1)
-        weaponLines.push(`屬性 ${this.weaponAttribute.name}`)
-        weaponLines.push(`蓄能 ${this.weaponAttributeCharge}/${attributeMax}${attributeReady ? ' 就緒' : ''}`)
-        if (this.weaponAttribute.description) weaponLines.push(this.weaponAttribute.description)
+      if (this.weaponAttributeStates.length) {
+        for (const state of this.weaponAttributeStates) {
+          const attributeMax = Math.max(state.chargeMax, 1)
+          const attributeReady = state.charge >= attributeMax
+          weaponLines.push(`屬性 ${state.def.name}`)
+          weaponLines.push(`蓄能 ${state.charge}/${attributeMax}${attributeReady ? ' 就緒' : ''}`)
+          if (state.def.description) weaponLines.push(state.def.description)
+        }
       }
     } else {
       weaponLines.push(`武器：無（攻擊 ${this.playerAtkBase}）`)
-      weaponLines.push('特技：無')
+      weaponLines.push('屬性：無')
     }
 
     const armorLines: string[] = []
@@ -328,25 +330,43 @@ export class BattleOverlay {
     const enemyDef = this.enemy.base.def
     let attackPower = baseAtk
 
-    let attributeTriggered = false
+    let triggeredAttributes: WeaponAttributeDef[] = []
     let ignoreDefense = false
-    if (this.weaponAttribute) {
-      const attributeResult = advanceWeaponAttributeCharge(this.weaponAttribute, this.weaponAttributeCharge)
-      attributeTriggered = attributeResult.triggered
+    let bonusDamage = 0
+    let lifeSteal = 0
+    if (this.weaponAttributeStates.length) {
+      const attributeResult = advanceWeaponAttributeStates(this.weaponAttributeStates)
+      this.weaponAttributeStates = attributeResult.states
+      triggeredAttributes = attributeResult.triggered
       ignoreDefense = attributeResult.ignoreDefense
-      this.weaponAttributeCharge = attributeResult.newCharge
-    } else {
-      this.weaponAttributeCharge = 0
+      bonusDamage = attributeResult.bonusDamage
+      lifeSteal = attributeResult.lifeSteal
     }
 
-    const damage = Math.max(1, ignoreDefense ? attackPower : attackPower - enemyDef)
+    const baseDamage = Math.max(1, ignoreDefense ? attackPower : attackPower - enemyDef)
+    const totalDamage = baseDamage + bonusDamage
 
-    this.enemyHp -= damage
-    const attackLogParts: string[] = [`你造成 ${damage} 點傷害`]
-    if (attributeTriggered && this.weaponAttribute) {
-      attackLogParts.push(`屬性「${this.weaponAttribute.name}」生效`)
+    this.enemyHp -= totalDamage
+
+    let actualHeal = 0
+    if (lifeSteal > 0) {
+      const beforeHp = this.playerHp
+      this.playerHp = Math.min(this.playerHp + lifeSteal, this.startingHp)
+      actualHeal = Math.max(this.playerHp - beforeHp, 0)
     }
-    this.appendLog(`${attackLogParts.join('；')}。`)
+
+    const attackLogParts: string[] = [`你造成 ${totalDamage} 點傷害`]
+    if (triggeredAttributes.length) {
+      const triggeredNames = triggeredAttributes.map(attribute => `「${attribute.name}」`).join('、')
+      attackLogParts.push(`屬性${triggeredNames}生效`)
+    }
+    if (bonusDamage > 0) {
+      attackLogParts.push(`追加 ${bonusDamage} 點屬性傷害`)
+    }
+    if (actualHeal > 0) {
+      attackLogParts.push(`回復 ${actualHeal} 點生命`)
+    }
+    this.appendLog(`${attackLogParts.join('；')}！`)
     if (this.enemyHp <= 0) {
       this.finishBattle(true)
       if (auto) this.stopAutoAdvance(false)
@@ -394,13 +414,16 @@ export class BattleOverlay {
   }
 
   private resolveAfterBattle() {
+    const chargeEntries: Array<[WeaponAttributeId, number]> = this.weaponAttributeStates.map(
+      state => [state.def.id, state.charge] as [WeaponAttributeId, number]
+    )
     this.close()
     if (this.victory) {
       this.host.finishBattle({
         enemy: this.enemy,
         enemyPos: this.enemyPos,
         remainingHp: this.playerHp,
-        weaponAttributeCharge: this.weaponAttributeCharge
+        weaponAttributeCharges: chargeEntries
       })
     } else {
       this.host.handlePlayerDefeat()

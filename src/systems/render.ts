@@ -4,7 +4,7 @@ import { enemies } from '../content/enemies'
 import type { SkillDef } from '../core/Types'
 import { getEffectiveCombatStats } from './combat'
 
-import { getWeaponAttribute, getWeaponAttributeChargeMax, isWeaponAttributeReady } from '../game/weapons/weaponAttributes'
+import { getWeaponAttributes, getWeaponAttributeChargeMax, isWeaponAttributeReady, normalizeWeaponAttributeCharges } from '../game/weapons/weaponAttributes'
 
 const SKILL_HOTKEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U']
 
@@ -329,14 +329,17 @@ export function draw(scene: any) {
   if (scene.playerWeapon) {
     const weapon = scene.playerWeapon
     statsLines.push(`  +攻擊 ${weapon.atk}`)
-    const attribute = getWeaponAttribute(weapon.attributeId ?? null)
-    if (attribute) {
-      const attributeMax = Math.max(getWeaponAttributeChargeMax(attribute), 1)
-      const attributeCharge = Math.min(Math.max(scene.weaponAttributeCharge ?? 0, 0), attributeMax)
-      const attributeReady = isWeaponAttributeReady(attribute, attributeCharge)
-      statsLines.push(`  屬性 ${attribute.name}`)
-      statsLines.push(`  蓄能 ${attributeCharge}/${attributeMax}${attributeReady ? ' 就緒' : ''}`)
-      if (attribute.description) statsLines.push(`  ${attribute.description}`)
+    const attributes = getWeaponAttributes(weapon.attributeIds ?? [])
+    if (attributes.length) {
+      const normalizedCharges = normalizeWeaponAttributeCharges(attributes, scene.weaponAttributeCharges ?? null)
+      for (const attribute of attributes) {
+        const attributeMax = Math.max(getWeaponAttributeChargeMax(attribute), 1)
+        const attributeCharge = Math.min(normalizedCharges[attribute.id] ?? 0, attributeMax)
+        const attributeReady = isWeaponAttributeReady(attribute, attributeCharge)
+        statsLines.push(`  屬性 ${attribute.name}`)
+        statsLines.push(`  蓄能 ${attributeCharge}/${attributeMax}${attributeReady ? ' 就緒' : ''}`)
+        if (attribute.description) statsLines.push(`  ${attribute.description}`)
+      }
     }
     if (weapon.desc) statsLines.push(`  ${weapon.desc}`)
   }

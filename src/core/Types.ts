@@ -23,7 +23,7 @@ export interface EnemyDef {
   mods?: string[]
   minFloor?: number
 }
-export type WeaponAttributeId = 'armor-break'
+export type WeaponAttributeId = 'armor-break' | 'fury-strike' | 'vampiric-edge' | 'storm-surge'
 export type WeaponAttributeChargeMap = Partial<Record<WeaponAttributeId, number>>
 
 
@@ -32,7 +32,9 @@ export interface WeaponAttributeDef {
   name: string
   description: string
   chargeMax: number
-  effect: 'ignore-defense'
+  effect: 'ignore-defense' | 'bonus-damage' | 'life-steal'
+  bonusDamage?: number
+  healAmount?: number
 }
 
 export interface WeaponDef { id: string; name: string; atk: number; desc?: string; minFloor?: number; attributeIds?: WeaponAttributeId[] }
