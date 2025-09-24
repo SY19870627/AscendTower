@@ -19,6 +19,7 @@ export interface EnemyDef {
   id: string
   name: string
   base: { hp: number; atk: number; def: number }
+  coinDrop?: { min: number; max: number }
   mods?: string[]
   minFloor?: number
 }

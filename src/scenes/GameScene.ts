@@ -4,6 +4,7 @@ import type {
   ArmorDef,
   EventDef,
   EventOutcome,
+  EnemyDef,
   Vec2,
   WeaponDef,
   ItemDef,
@@ -1188,8 +1189,8 @@ export class GameScene extends Phaser.Scene {
     return selection[index]
   }
 
-  finishBattle(outcome: { enemyPos: Vec2; remainingHp: number; weaponCharge: number; weaponAttributeCharge: number }) {
-    const { enemyPos, remainingHp, weaponCharge, weaponAttributeCharge } = outcome
+  finishBattle(outcome: { enemy: EnemyDef; enemyPos: Vec2; remainingHp: number; weaponCharge: number; weaponAttributeCharge: number }) {
+    const { enemy, enemyPos, remainingHp, weaponCharge, weaponAttributeCharge } = outcome
     this.playerStats.hp = Math.max(Math.floor(remainingHp), 0)
     this.weaponCharge = Math.max(weaponCharge, 0)
     this.weaponAttributeCharge = Math.max(weaponAttributeCharge, 0)
@@ -1197,7 +1198,28 @@ export class GameScene extends Phaser.Scene {
     this.grid.movePlayer(enemyPos)
     this.grid.enemyPos = this.grid.enemyPos.filter(p => p.x !== enemyPos.x || p.y !== enemyPos.y)
     this.grid.setTileUnderPlayer('floor')
+
+    const rewardMessages: string[] = []
+    const drop = enemy.coinDrop
+    if (drop) {
+      const min = Math.max(0, Math.floor(drop.min))
+      const max = Math.max(min, Math.floor(drop.max))
+      const coins = this.grid.rng.int(min, max)
+      if (coins > 0) {
+        const before = this.coins
+        this.coins = before + coins
+        rewardMessages.push('擊敗 ' + enemy.name + '，獲得 ' + coins + ' 金幣。')
+        rewardMessages.push('金幣：' + before + ' -> ' + this.coins)
+      }
+    }
+
     this.cameras.main.flash(120, 80, 200, 255)
+
+    if (rewardMessages.length) {
+      this.appendActionMessages(rewardMessages)
+      this.syncFloorLastAction()
+    }
+
     draw(this)
   }
 

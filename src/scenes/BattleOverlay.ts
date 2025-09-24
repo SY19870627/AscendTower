@@ -432,6 +432,7 @@ export class BattleOverlay {
     this.close()
     if (this.victory) {
       this.host.finishBattle({
+        enemy: this.enemy,
         enemyPos: this.enemyPos,
         remainingHp: this.playerHp,
         weaponCharge: this.weaponCharge,
