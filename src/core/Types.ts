@@ -34,7 +34,7 @@ export interface WeaponAttributeDef {
 }
 
 export interface WeaponDef { id: string; name: string; atk: number; desc?: string; minFloor?: number; attributeId?: WeaponAttributeId }
-export interface ArmorDef { id: string; name: string; def: number; shield?: number; desc?: string; minFloor?: number }
+export interface ArmorDef { id: string; name: string; def: number; desc?: string; minFloor?: number }
 export interface PlayerStats { hp: number; mp: number }
 export interface ItemGrant { id: string; quantity?: number }
 export interface StatusDef {
@@ -75,7 +75,6 @@ export interface CombatPreview {
   lossHp: number
   rounds: number
   playerHpRemaining?: number
-  shieldRemaining?: number
 }
 
 export interface EventOutcome {

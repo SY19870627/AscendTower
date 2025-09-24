@@ -30,8 +30,6 @@ export class BattleOverlay {
   weaponAttribute: WeaponAttributeDef | null = null
   weaponAttributeCharge = 0
   weaponAttributeChargeMax = 0
-  shieldMax = 0
-  shieldRemaining = 0
   enemyHp = 0
   battleStarted = false
   battleEnded = false
@@ -87,8 +85,6 @@ export class BattleOverlay {
       ? Math.min(initialAttributeCharge, this.weaponAttributeChargeMax)
       : 0
 
-    this.shieldMax = data.player.armor?.shield ?? 0
-    this.shieldRemaining = this.shieldMax
     this.enemyHp = this.enemy.base.hp
     this.round = 0
     this.logs = []
@@ -233,12 +229,7 @@ export class BattleOverlay {
     const armorLines: string[] = []
     if (this.playerArmor) {
       armorLines.push(`防具：${this.playerArmor.name}（防禦 +${this.playerArmor.def}）`)
-      if (typeof this.playerArmor.shield === 'number') {
-        armorLines.push(`護盾：${Math.max(this.shieldRemaining, 0)}/${this.playerArmor.shield}`)
-      }
       if (this.playerArmor.desc) armorLines.push(this.playerArmor.desc)
-    } else if (this.shieldMax > 0) {
-      armorLines.push(`護盾：${Math.max(this.shieldRemaining, 0)}/${this.shieldMax}`)
     }
 
     const playerLines = [
@@ -349,24 +340,10 @@ export class BattleOverlay {
     }
 
     const rawEnemyDamage = Math.max(1, this.enemy.base.atk - this.playerDef)
-    let remainingDamage = rawEnemyDamage
-    let shieldAbsorbed = 0
-    if (this.shieldRemaining > 0) {
-      shieldAbsorbed = Math.min(this.shieldRemaining, remainingDamage)
-      this.shieldRemaining -= shieldAbsorbed
-      remainingDamage -= shieldAbsorbed
-    }
-    if (remainingDamage > 0) {
-      this.playerHp -= remainingDamage
-    }
+    this.playerHp -= rawEnemyDamage
 
     const enemyLines: string[] = [`敵人造成 ${rawEnemyDamage} 點傷害`]
-    if (shieldAbsorbed > 0) enemyLines.push(`護盾吸收了 ${shieldAbsorbed} 點傷害`)
-    if (remainingDamage > 0) {
-      enemyLines.push(`目前生命 ${Math.max(this.playerHp, 0)}`)
-    } else {
-      enemyLines.push('護盾吸收了所有傷害')
-    }
+    enemyLines.push(`目前生命 ${Math.max(this.playerHp, 0)}`)
     this.appendLog(enemyLines.join('; '))
 
     if (this.playerHp <= 0) {

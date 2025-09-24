@@ -287,8 +287,7 @@ export class LibraryOverlay {
       ? stash.map((armor, idx) => {
           const pointer = idx === this.selectedIndex ? '>' : ' '
           const equipped = armor.id === currentId ? '[E]' : '   '
-          const shieldLabel = typeof armor.shield === 'number' ? `，護盾 ${armor.shield}` : ''
-          return `${pointer} ${equipped} ${idx + 1}. ${armor.name}（防禦 ${armor.def}${shieldLabel}）`
+          return `${pointer} ${equipped} ${idx + 1}. ${armor.name}（防禦 ${armor.def}）`
         })
       : ['（空）']
 
@@ -299,7 +298,6 @@ export class LibraryOverlay {
         `${armor.name}`,
         `防禦 ${armor.def}`
       ]
-      if (typeof armor.shield === 'number') detailLines.push(`護盾 ${armor.shield}`)
       if (armor.desc) detailLines.push(armor.desc)
       detail = detailLines.join('\n')
     }

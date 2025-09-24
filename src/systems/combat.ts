@@ -8,7 +8,6 @@ export type CombatOutcome = {
   attributeTriggers: number
   finalAttributeCharge: number
   playerHpRemaining: number
-  shieldRemaining: number
 }
 
 export function getEffectiveCombatStats(scene: any) {
@@ -35,8 +34,6 @@ export function simulateCombat(scene: any, enemy: EnemyDef): CombatOutcome {
   const combatStats = getEffectiveCombatStats(scene)
   const baseAtk = combatStats.atk
   const playerDef = combatStats.def
-  const shieldMax = scene.playerArmor?.shield ?? 0
-  let shieldRemaining = shieldMax
   let playerHp = scene.playerStats.hp
   let enemyHp = enemy.base.hp
   const enemyAtk = enemy.base.atk
@@ -59,22 +56,13 @@ export function simulateCombat(scene: any, enemy: EnemyDef): CombatOutcome {
     if (enemyHp <= 0) break
 
     const enemyDamage = Math.max(1, enemyAtk - playerDef)
-    let remainingDamage = enemyDamage
-    if (shieldRemaining > 0) {
-      const absorbed = Math.min(shieldRemaining, remainingDamage)
-      shieldRemaining -= absorbed
-      remainingDamage -= absorbed
-    }
-    if (remainingDamage > 0) {
-      playerHp -= remainingDamage
-      if (playerHp <= 0) break
-    }
+    playerHp -= enemyDamage
+    if (playerHp <= 0) break
   }
 
   const canWin = enemyHp <= 0 && playerHp > 0
   const playerHpRemaining = Math.max(playerHp, 0)
   const lossHp = Math.max(0, scene.playerStats.hp - playerHpRemaining)
   const finalAttributeCharge = attribute ? Math.min(Math.max(attributeCharge, 0), attributeChargeMax) : 0
-  const shieldRemainingOutput = Math.max(shieldRemaining, 0)
-  return { canWin, lossHp, rounds, attributeTriggers, finalAttributeCharge, playerHpRemaining, shieldRemaining: shieldRemainingOutput }
+  return { canWin, lossHp, rounds, attributeTriggers, finalAttributeCharge, playerHpRemaining }
 }

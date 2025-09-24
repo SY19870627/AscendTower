@@ -189,8 +189,7 @@ function describeTile(scene: any, tile: string, x: number, y: number): string | 
     case 'armor': {
       const armor = scene.armorDrops?.get(posKey)
       if (!armor) return '防具：未知'
-      const shieldLabel = typeof armor.shield === 'number' ? `，護盾 ${armor.shield}` : ''
-      return `防具：${armor.name}（防禦 ${armor.def}${shieldLabel}）`
+      return `防具：${armor.name}（防禦 ${armor.def}）`
     }
     case 'item': {
       const item = scene.itemDrops?.get(posKey)
@@ -345,7 +344,6 @@ export function draw(scene: any) {
   if (scene.playerArmor) {
     const armor = scene.playerArmor
     statsLines.push(`  +防禦 ${armor.def}`)
-    if (typeof armor.shield === 'number') statsLines.push(`  護盾值 ${armor.shield}`)
     if (armor.desc) statsLines.push(`  ${armor.desc}`)
   }
 
