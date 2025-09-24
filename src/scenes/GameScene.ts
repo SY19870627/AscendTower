@@ -102,6 +102,8 @@ export class GameScene extends Phaser.Scene {
 
   grid!: Grid
   gfx!: Phaser.GameObjects.Graphics
+  tileSprites = new Map<string, Phaser.GameObjects.Image>()
+  tileIcons = new Map<string, Phaser.GameObjects.Image>()
   readonly sidebarWidth = 360
   readonly sidebarPadding = 16
   gridOrigin = { x: 0, y: 0 }
@@ -264,8 +266,13 @@ export class GameScene extends Phaser.Scene {
 
     this.loadFloorState()
 
+    this.resetTileSpriteCache()
+
     this.gfx = this.add.graphics()
     this.gfx.setDepth(0)
+
+    this.events.once('shutdown', () => this.resetTileSpriteCache())
+    this.events.once('destroy', () => this.resetTileSpriteCache())
 
     const sidebarHeight = this.scale.height
     this.add.rectangle(0, 0, this.sidebarWidth, sidebarHeight, 0x112020)
@@ -288,6 +295,13 @@ export class GameScene extends Phaser.Scene {
     if (shouldAutoLoad) {
       this.loadGame({ silent: true })
     }
+  }
+
+  private resetTileSpriteCache() {
+    this.tileSprites.forEach(sprite => sprite.destroy())
+    this.tileSprites.clear()
+    this.tileIcons.forEach(sprite => sprite.destroy())
+    this.tileIcons.clear()
   }
 
   private setupJumpButton() {

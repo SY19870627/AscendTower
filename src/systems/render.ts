@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { TILE, COLORS } from '../content/tilesets'
+import { TILE } from '../content/tilesets'
 import { enemies } from '../content/enemies'
 import type { SkillDef } from '../core/Types'
 import { getEffectiveCombatStats } from './combat'
@@ -7,6 +7,32 @@ import { getEffectiveCombatStats } from './combat'
 import { getWeaponAttribute, getWeaponAttributeChargeMax, isWeaponAttributeReady } from '../game/weapons/weaponAttributes'
 
 const SKILL_HOTKEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U']
+
+const TILE_TEXTURE_KEY = 'floor_wall'
+const SYMBOL_TEXTURE_KEY = 'symbol_tiles'
+
+type SymbolConfig = {
+  frame: number
+  tint?: number
+  flipX?: boolean
+  flipY?: boolean
+}
+
+const SYMBOL_BY_TILE: Record<string, SymbolConfig> = {
+  player: { frame: 0 },
+  key: { frame: 1 },
+  door: { frame: 2 },
+  stairs_up: { frame: 3 },
+  stairs_down: { frame: 3, flipY: true },
+  enemy: { frame: 4 },
+  weapon: { frame: 5 },
+  armor: { frame: 6 },
+  shop: { frame: 7, tint: 0xffb85c },
+  npc: { frame: 7, tint: 0x9fd4ff },
+  item: { frame: 8 },
+  event: { frame: 9 },
+  ending: { frame: 9, tint: 0xff71c8 }
+}
 
 type DirectionKey = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
 
@@ -81,139 +107,67 @@ function cleanupUnusedText(scene: Phaser.Scene, activeIds: Set<string>) {
   })
 }
 
-function drawTileIcon(scene: any, tile: string, drawX: number, drawY: number, size: number) {
-  const g = scene.gfx as Phaser.GameObjects.Graphics
-  const cx = drawX + size / 2
-  const cy = drawY + size / 2
+type TileSpriteCache = Map<string, Phaser.GameObjects.Image>
 
-  switch (tile) {
-    case 'player': {
-      g.fillStyle(0x2f98ff, 0.85)
-      g.fillCircle(cx, cy, size * 0.24)
-      g.lineStyle(3, 0xffffff, 0.95)
-      g.strokeCircle(cx, cy, size * 0.28)
-      break
+function updateTileSprites(
+  scene: any,
+  caches: { base: TileSpriteCache; icons: TileSpriteCache },
+  posKey: string,
+  tile: string,
+  drawX: number,
+  drawY: number,
+  tileSize: number,
+  activeBase: Set<string>,
+  activeIcons: Set<string>
+) {
+  const baseFrame = tile === 'wall' ? 1 : 0
+  let baseSprite = caches.base.get(posKey)
+  if (!baseSprite) {
+    baseSprite = scene.add.image(drawX, drawY, TILE_TEXTURE_KEY, baseFrame)
+    baseSprite.setOrigin(0, 0)
+    baseSprite.setDepth(-1)
+    caches.base.set(posKey, baseSprite)
+  }
+  baseSprite.setFrame(baseFrame)
+  baseSprite.setPosition(drawX, drawY)
+  baseSprite.setDisplaySize(tileSize, tileSize)
+  baseSprite.setVisible(true)
+  activeBase.add(posKey)
+
+  const symbolConfig = SYMBOL_BY_TILE[tile]
+  if (symbolConfig) {
+    let icon = caches.icons.get(posKey)
+    if (!icon) {
+      icon = scene.add.image(drawX + tileSize / 2, drawY + tileSize / 2, SYMBOL_TEXTURE_KEY, symbolConfig.frame)
+      icon.setDepth(1)
+      caches.icons.set(posKey, icon)
     }
-    case 'enemy': {
-      g.fillStyle(0xff6b6b, 0.75)
-      g.fillCircle(cx, cy, size * 0.26)
-      g.lineStyle(3, 0x320808, 0.9)
-      g.strokeCircle(cx, cy, size * 0.26)
-      g.lineBetween(cx - size * 0.18, cy - size * 0.18, cx + size * 0.18, cy + size * 0.18)
-      g.lineBetween(cx - size * 0.18, cy + size * 0.18, cx + size * 0.18, cy - size * 0.18)
-      break
+    icon.setFrame(symbolConfig.frame)
+    icon.setPosition(drawX + tileSize / 2, drawY + tileSize / 2)
+    icon.setDisplaySize(tileSize, tileSize)
+    icon.setFlipX(!!symbolConfig.flipX)
+    icon.setFlipY(!!symbolConfig.flipY)
+    if (symbolConfig.tint !== undefined) {
+      icon.setTint(symbolConfig.tint)
+    } else {
+      icon.clearTint()
     }
-    case 'weapon': {
-      g.lineStyle(4, 0xfff2a6, 0.95)
-      g.lineBetween(drawX + size * 0.28, drawY + size * 0.72, drawX + size * 0.72, drawY + size * 0.28)
-      g.lineStyle(2, 0x8b6200, 0.9)
-      g.strokeCircle(drawX + size * 0.72, drawY + size * 0.28, size * 0.08)
-      break
+    icon.setVisible(true)
+    activeIcons.add(posKey)
+  } else {
+    const icon = caches.icons.get(posKey)
+    if (icon) {
+      icon.setVisible(false)
     }
-    case 'armor': {
-      g.fillStyle(0x9fd4ff, 0.8)
-      g.beginPath()
-      g.moveTo(cx, drawY + size * 0.22)
-      g.lineTo(drawX + size * 0.78, drawY + size * 0.36)
-      g.lineTo(drawX + size * 0.64, drawY + size * 0.78)
-      g.lineTo(drawX + size * 0.36, drawY + size * 0.78)
-      g.lineTo(drawX + size * 0.22, drawY + size * 0.36)
-      g.closePath()
-      g.fillPath()
-      g.lineStyle(2, 0x1a3f5a, 0.85)
-      g.strokePath()
-      break
-    }
-    case 'key': {
-      g.fillStyle(0xffeb6b, 0.85)
-      g.fillCircle(drawX + size * 0.36, cy, size * 0.18)
-      g.lineStyle(3, 0x8a6c15, 0.9)
-      g.strokeCircle(drawX + size * 0.36, cy, size * 0.18)
-      g.lineBetween(drawX + size * 0.5, cy, drawX + size * 0.82, cy)
-      g.lineBetween(drawX + size * 0.72, cy, drawX + size * 0.72, cy + size * 0.2)
-      break
-    }
-    case 'door': {
-      g.fillStyle(0xd9a86b, 0.85)
-      g.fillRect(drawX + size * 0.22, drawY + size * 0.2, size * 0.56, size * 0.6)
-      g.lineStyle(2, 0x4b3218, 0.85)
-      g.strokeRect(drawX + size * 0.22, drawY + size * 0.2, size * 0.56, size * 0.6)
-      break
-    }
-    case 'stairs_up': {
-      g.fillStyle(0x7ad3b5, 0.9)
-      g.fillTriangle(drawX + size * 0.3, drawY + size * 0.7, drawX + size * 0.7, drawY + size * 0.7, cx, drawY + size * 0.3)
-      g.lineStyle(2, 0xffffff, 0.85)
-      g.strokeTriangle(drawX + size * 0.3, drawY + size * 0.7, drawX + size * 0.7, drawY + size * 0.7, cx, drawY + size * 0.3)
-      break
-    }
-    case 'stairs_down': {
-      g.fillStyle(0x5c9bd3, 0.9)
-      g.fillTriangle(drawX + size * 0.3, drawY + size * 0.3, drawX + size * 0.7, drawY + size * 0.3, cx, drawY + size * 0.7)
-      g.lineStyle(2, 0xffffff, 0.85)
-      g.strokeTriangle(drawX + size * 0.3, drawY + size * 0.3, drawX + size * 0.7, drawY + size * 0.3, cx, drawY + size * 0.7)
-      break
-    }
-    case 'event': {
-      g.fillStyle(0xd7b0ff, 0.85)
-      g.fillEllipse(cx, cy - size * 0.05, size * 0.18, size * 0.24)
-      g.lineStyle(2, 0x4b2f69, 0.9)
-      g.strokeEllipse(cx, cy - size * 0.05, size * 0.18, size * 0.24)
-      g.fillRect(cx - size * 0.04, cy + size * 0.05, size * 0.08, size * 0.22)
-      break
-    }
-    case 'shop': {
-      g.fillStyle(0xffc04d, 0.9)
-      g.fillRect(drawX + size * 0.3, drawY + size * 0.32, size * 0.4, size * 0.34)
-      g.lineStyle(2, 0x8a5a12, 0.85)
-      g.strokeRect(drawX + size * 0.3, drawY + size * 0.32, size * 0.4, size * 0.34)
-      g.fillCircle(cx - size * 0.08, cy + size * 0.08, size * 0.04)
-      g.fillCircle(cx + size * 0.08, cy + size * 0.08, size * 0.04)
-      break
-    }
-    case 'item': {
-      g.fillStyle(0xffd27f, 0.85)
-      g.beginPath()
-      const points = 8
-      const inner = size * 0.12
-      const outer = size * 0.24
-      for (let i = 0; i < points; i++) {
-        const angle = (Math.PI / 4) * i
-        const radius = i % 2 === 0 ? outer : inner
-        const px = cx + Math.cos(angle) * radius
-        const py = cy + Math.sin(angle) * radius
-        if (i === 0) g.moveTo(px, py)
-        else g.lineTo(px, py)
-      }
-      g.closePath()
-      g.fillPath()
-      g.lineStyle(2, 0x6b4814, 0.9)
-      g.strokePath()
-      break
-    }
-    case 'npc': {
-      g.fillStyle(0xbfe4ff, 0.9)
-      g.fillCircle(cx, drawY + size * 0.32, size * 0.14)
-      g.fillRect(drawX + size * 0.32, drawY + size * 0.42, size * 0.36, size * 0.32)
-      g.lineStyle(2, 0x2a4a66, 0.85)
-      g.strokeRect(drawX + size * 0.32, drawY + size * 0.42, size * 0.36, size * 0.32)
-      break
-    }
-    case 'ending': {
-      g.fillStyle(0xff71c8, 0.9)
-      g.fillRect(drawX + size * 0.24, drawY + size * 0.24, size * 0.52, size * 0.52)
-      g.lineStyle(2, 0xffffff, 0.9)
-      g.strokeRect(drawX + size * 0.24, drawY + size * 0.24, size * 0.52, size * 0.52)
-      g.fillCircle(cx, cy, size * 0.1)
-      break
-    }
-    default:
-      break
   }
 }
 
-function getTileColor(tile: string) {
-  return (COLORS as Record<string, number>)[tile] ?? COLORS.floor
+function hideUnusedSprites(cache: TileSpriteCache, activeKeys: Set<string>) {
+  cache.forEach((sprite, key) => {
+    if (!activeKeys.has(key)) {
+      sprite.setVisible(false)
+    }
+  })
 }
 
 function makePosKey(x: number, y: number) {
@@ -320,6 +274,20 @@ export function draw(scene: any) {
 
   gfx.clear()
 
+  const baseCache: TileSpriteCache =
+    scene.tileSprites instanceof Map ? scene.tileSprites : new Map<string, Phaser.GameObjects.Image>()
+  if (!(scene.tileSprites instanceof Map)) {
+    scene.tileSprites = baseCache
+  }
+  const iconCache: TileSpriteCache =
+    scene.tileIcons instanceof Map ? scene.tileIcons : new Map<string, Phaser.GameObjects.Image>()
+  if (!(scene.tileIcons instanceof Map)) {
+    scene.tileIcons = iconCache
+  }
+  const caches = { base: baseCache, icons: iconCache }
+  const activeBaseTiles = new Set<string>()
+  const activeIconTiles = new Set<string>()
+
   const grid = scene.grid
 
   for (let y = 0; y < grid.h; y++) {
@@ -327,17 +295,17 @@ export function draw(scene: any) {
       const tile = grid.tiles[y][x]
       const drawX = baseX + x * tileSize
       const drawY = baseY + y * tileSize
-      const color = getTileColor(tile)
+      const posKey = makePosKey(x, y)
 
-      gfx.fillStyle(color, 1)
-      gfx.fillRect(drawX, drawY, tileSize, tileSize)
+      updateTileSprites(scene, caches, posKey, tile, drawX, drawY, tileSize, activeBaseTiles, activeIconTiles)
+
       gfx.lineStyle(1, 0x0d1414, 0.4)
       gfx.strokeRect(drawX + 0.5, drawY + 0.5, tileSize - 1, tileSize - 1)
-
-      drawTileIcon(scene, tile, drawX, drawY, tileSize)
-
     }
   }
+
+  hideUnusedSprites(caches.base, activeBaseTiles)
+  hideUnusedSprites(caches.icons, activeIconTiles)
 
   const statsStartX = scene.sidebarPadding ?? 16
   let currentY = scene.sidebarPadding ?? 16
