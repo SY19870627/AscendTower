@@ -121,38 +121,38 @@ function updateTileSprites(
   activeIcons: Set<string>
 ) {
   const baseFrame = tile === 'wall' ? 1 : 0
-  let baseSprite = caches.base.get(posKey)
-  if (!baseSprite) {
-    baseSprite = scene.add.image(drawX, drawY, TILE_TEXTURE_KEY, baseFrame)
-    baseSprite.setOrigin(0, 0)
-    baseSprite.setDepth(-1)
-    caches.base.set(posKey, baseSprite)
-  }
-  baseSprite.setFrame(baseFrame)
-  baseSprite.setPosition(drawX, drawY)
-  baseSprite.setDisplaySize(tileSize, tileSize)
-  baseSprite.setVisible(true)
+  const sprite = caches.base.get(posKey) ?? (() => {
+    const created = scene.add.image(drawX, drawY, TILE_TEXTURE_KEY, baseFrame)
+    created.setOrigin(0, 0)
+    created.setDepth(-1)
+    caches.base.set(posKey, created)
+    return created
+  })()
+  sprite.setFrame(baseFrame)
+  sprite.setPosition(drawX, drawY)
+  sprite.setDisplaySize(tileSize, tileSize)
+  sprite.setVisible(true)
   activeBase.add(posKey)
 
   const symbolConfig = SYMBOL_BY_TILE[tile]
   if (symbolConfig) {
-    let icon = caches.icons.get(posKey)
-    if (!icon) {
-      icon = scene.add.image(drawX + tileSize / 2, drawY + tileSize / 2, SYMBOL_TEXTURE_KEY, symbolConfig.frame)
-      icon.setDepth(1)
-      caches.icons.set(posKey, icon)
-    }
-    icon.setFrame(symbolConfig.frame)
-    icon.setPosition(drawX + tileSize / 2, drawY + tileSize / 2)
-    icon.setDisplaySize(tileSize, tileSize)
-    icon.setFlipX(!!symbolConfig.flipX)
-    icon.setFlipY(!!symbolConfig.flipY)
+    const symbol = caches.icons.get(posKey) ?? (() => {
+      const created = scene.add.image(drawX + tileSize / 2, drawY + tileSize / 2, SYMBOL_TEXTURE_KEY, symbolConfig.frame)
+      created.setDepth(1)
+      caches.icons.set(posKey, created)
+      return created
+    })()
+    symbol.setFrame(symbolConfig.frame)
+    symbol.setPosition(drawX + tileSize / 2, drawY + tileSize / 2)
+    symbol.setDisplaySize(tileSize, tileSize)
+    symbol.setFlipX(!!symbolConfig.flipX)
+    symbol.setFlipY(!!symbolConfig.flipY)
     if (symbolConfig.tint !== undefined) {
-      icon.setTint(symbolConfig.tint)
+      symbol.setTint(symbolConfig.tint)
     } else {
-      icon.clearTint()
+      symbol.clearTint()
     }
-    icon.setVisible(true)
+    symbol.setVisible(true)
     activeIcons.add(posKey)
   } else {
     const icon = caches.icons.get(posKey)
@@ -329,16 +329,7 @@ export function draw(scene: any) {
 
   if (scene.playerWeapon) {
     const weapon = scene.playerWeapon
-    const special = weapon.special
     statsLines.push(`  +攻擊 ${weapon.atk}`)
-    if (special) {
-      statsLines.push(`  特技 ${special.name}：傷害 ${special.damage}`)
-      const chargeMax = special.chargeMax
-      const currentCharge = Math.min(scene.weaponCharge ?? 0, chargeMax)
-      statsLines.push(`  蓄能 ${currentCharge}/${chargeMax}`)
-      if (currentCharge >= chargeMax) statsLines.push('  特技 就緒')
-      if (special.desc) statsLines.push(`  ${special.desc}`)
-    }
     const attribute = getWeaponAttribute(weapon.attributeId ?? null)
     if (attribute) {
       const attributeMax = Math.max(getWeaponAttributeChargeMax(attribute), 1)

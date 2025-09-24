@@ -11,7 +11,6 @@ export type BattleInitData = {
     hp: number
     weapon: WeaponDef | null
     armor: ArmorDef | null
-    weaponCharge: number
     weaponAttributeCharge: number
   }
 }
@@ -28,8 +27,6 @@ export class BattleOverlay {
   startingHp = 0
   playerAtkBase = 0
   playerDef = 0
-  weaponCharge = 0
-  chargeMax = 0
   weaponAttribute: WeaponAttributeDef | null = null
   weaponAttributeCharge = 0
   weaponAttributeChargeMax = 0
@@ -40,7 +37,6 @@ export class BattleOverlay {
   battleEnded = false
   victory = false
   round = 0
-  specialUses = 0
   logs: string[] = []
   private autoAdvanceEvent?: Phaser.Time.TimerEvent
   private autoAdvanceIntervalMs = 0
@@ -84,9 +80,6 @@ export class BattleOverlay {
     this.startingHp = data.player.hp
     this.playerAtkBase = (data.player.weapon?.atk ?? 0) + (statusBonuses.atk ?? 0)
     this.playerDef = (data.player.armor?.def ?? 0) + (statusBonuses.def ?? 0)
-    this.weaponCharge = data.player.weaponCharge
-    this.chargeMax = this.playerWeapon?.special?.chargeMax ?? 0
-    this.weaponCharge = this.chargeMax > 0 ? Math.min(this.weaponCharge, this.chargeMax) : 0
     this.weaponAttribute = getWeaponAttribute(this.playerWeapon?.attributeId ?? null)
     this.weaponAttributeChargeMax = getWeaponAttributeChargeMax(this.weaponAttribute)
     const initialAttributeCharge = Math.max(0, Math.floor(data.player.weaponAttributeCharge ?? 0))
@@ -98,7 +91,6 @@ export class BattleOverlay {
     this.shieldRemaining = this.shieldMax
     this.enemyHp = this.enemy.base.hp
     this.round = 0
-    this.specialUses = 0
     this.logs = []
     this.battleStarted = false
     this.battleEnded = false
@@ -226,12 +218,6 @@ export class BattleOverlay {
     const weaponLines: string[] = []
     if (this.playerWeapon) {
       weaponLines.push(`武器：${this.playerWeapon.name}（攻擊 ${this.playerAtkBase}）`)
-      if (this.playerWeapon.special) {
-        const ready = this.chargeMax > 0 && this.weaponCharge >= this.chargeMax
-        weaponLines.push(`特技 ${this.playerWeapon.special.name} 傷害 ${this.playerWeapon.special.damage}`)
-        weaponLines.push(`蓄能 ${this.weaponCharge}/${this.chargeMax}${ready ? ' 就緒' : ''}`)
-        if (this.playerWeapon.special.desc) weaponLines.push(this.playerWeapon.special.desc)
-      }
       if (this.weaponAttribute) {
         const attributeReady = isWeaponAttributeReady(this.weaponAttribute, this.weaponAttributeCharge)
         const attributeMax = Math.max(this.weaponAttributeChargeMax, 1)
@@ -336,18 +322,6 @@ export class BattleOverlay {
     const baseAtk = this.playerAtkBase
     const enemyDef = this.enemy.base.def
     let attackPower = baseAtk
-    let usedSpecial = false
-    const special = this.playerWeapon?.special
-    if (special) {
-      if (this.chargeMax > 0 && this.weaponCharge >= this.chargeMax) {
-        attackPower = special.damage ?? baseAtk
-        this.weaponCharge = 0
-        usedSpecial = true
-        this.specialUses++
-      } else if (this.chargeMax > 0) {
-        this.weaponCharge = Math.min(this.weaponCharge + 1, this.chargeMax)
-      }
-    }
 
     let attributeTriggered = false
     let ignoreDefense = false
@@ -363,7 +337,7 @@ export class BattleOverlay {
     const damage = Math.max(1, ignoreDefense ? attackPower : attackPower - enemyDef)
 
     this.enemyHp -= damage
-    const attackLogParts: string[] = [`你造成 ${damage} 點傷害${usedSpecial ? '（特技）' : ''}`]
+    const attackLogParts: string[] = [`你造成 ${damage} 點傷害`]
     if (attributeTriggered && this.weaponAttribute) {
       attackLogParts.push(`屬性「${this.weaponAttribute.name}」生效`)
     }
@@ -435,7 +409,6 @@ export class BattleOverlay {
         enemy: this.enemy,
         enemyPos: this.enemyPos,
         remainingHp: this.playerHp,
-        weaponCharge: this.weaponCharge,
         weaponAttributeCharge: this.weaponAttributeCharge
       })
     } else {
@@ -500,9 +473,3 @@ export class BattleOverlay {
 }
 
 export default BattleOverlay
-
-
-
-
-
-

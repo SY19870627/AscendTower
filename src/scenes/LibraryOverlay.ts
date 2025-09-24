@@ -268,11 +268,6 @@ export class LibraryOverlay {
         `${weapon.name}`,
         `攻擊 ${weapon.atk}`
       ]
-      if (weapon.special) {
-        detailLines.push(`特技：${weapon.special.name}`)
-        detailLines.push(`蓄能 ${weapon.special.chargeMax}，傷害 ${weapon.special.damage}`)
-        if (weapon.special.desc) detailLines.push(weapon.special.desc)
-      }
       if (weapon.desc) detailLines.push(weapon.desc)
       detail = detailLines.join('\n')
     }

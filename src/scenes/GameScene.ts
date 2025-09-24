@@ -135,7 +135,6 @@ export class GameScene extends Phaser.Scene {
     '“若見此字，別怕黑。” ',
     '然後你把符紙輕輕一按，世界再次刷新。'
   ]
-  private endingTilePos: Vec2 | null = null
   private endingTriggered = false
   private readonly floorStates = new Map<number, FloorState>()
   private pendingEntry: 'up' | 'down' | null = null
@@ -168,14 +167,6 @@ export class GameScene extends Phaser.Scene {
 
   set playerArmor(value: ArmorDef | null) {
     this.playerState.armor = value
-  }
-
-  get weaponCharge(): number {
-    return this.playerState.weaponCharge
-  }
-
-  set weaponCharge(value: number) {
-    this.playerState.weaponCharge = Math.max(value, 0)
   }
 
   get weaponAttributeCharge(): number {
@@ -239,7 +230,6 @@ export class GameScene extends Phaser.Scene {
     this.pendingEntry = data?.entry ?? null
     this.pendingStartMode = data?.startMode === 'load' ? 'load' : null
     this.endingTriggered = false
-    this.endingTilePos = null
   }
 
   resetPlayerState() {
@@ -254,7 +244,6 @@ export class GameScene extends Phaser.Scene {
     this.lastActionMessage = ''
     this.pendingEntry = null
     this.pendingStartMode = null
-    this.endingTilePos = null
     this.endingTriggered = false
     this.syncFloorLastAction()
   }
@@ -436,27 +425,15 @@ export class GameScene extends Phaser.Scene {
 
   private ensureEndingTile() {
     if (this.floor !== 10) {
-      this.endingTilePos = null
-      return
+        return
     }
 
     const existing = this.findEndingTilePos()
     if (existing) {
-      this.endingTilePos = existing
       return
     }
 
-    const pos = this.grid.place('ending')
-    this.endingTilePos = pos
-  }
-
-  private refreshEndingTileReference() {
-    if (this.floor !== 10) {
-      this.endingTilePos = null
-      return
-    }
-
-    this.endingTilePos = this.findEndingTilePos()
+    this.grid.place('ending')
   }
 
   private findEndingTilePos(): Vec2 | null {
@@ -485,7 +462,6 @@ export class GameScene extends Phaser.Scene {
       this.shopNodes = cached.shopNodes
       this.itemDrops = cached.itemDrops
       this.lastActionMessage = cached.lastActionMessage
-      this.refreshEndingTileReference()
       this.syncFloorLastAction()
       this.positionPlayerForEntry()
       return
@@ -588,7 +564,6 @@ export class GameScene extends Phaser.Scene {
     if (this.dialogueOverlay?.isActive) return
 
     this.endingTriggered = true
-    this.endingTilePos = { x: pos.x, y: pos.y }
 
     if (this.grid.tiles[pos.y] && this.grid.tiles[pos.y][pos.x] === 'ending') {
       this.grid.tiles[pos.y][pos.x] = 'floor'
@@ -609,7 +584,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleEndingCompletion() {
-    this.endingTilePos = null
     this.time.delayedCall(240, () => {
       this.scene.start('TitleScene')
     })
@@ -1172,7 +1146,6 @@ export class GameScene extends Phaser.Scene {
         hp: this.playerStats.hp,
         weapon: this.playerWeapon,
         armor: this.playerArmor,
-        weaponCharge: this.weaponCharge,
         weaponAttributeCharge: this.weaponAttributeCharge
       }
     }
@@ -1189,10 +1162,9 @@ export class GameScene extends Phaser.Scene {
     return selection[index]
   }
 
-  finishBattle(outcome: { enemy: EnemyDef; enemyPos: Vec2; remainingHp: number; weaponCharge: number; weaponAttributeCharge: number }) {
-    const { enemy, enemyPos, remainingHp, weaponCharge, weaponAttributeCharge } = outcome
+  finishBattle(outcome: { enemy: EnemyDef; enemyPos: Vec2; remainingHp: number; weaponAttributeCharge: number }) {
+    const { enemy, enemyPos, remainingHp, weaponAttributeCharge } = outcome
     this.playerStats.hp = Math.max(Math.floor(remainingHp), 0)
-    this.weaponCharge = Math.max(weaponCharge, 0)
     this.weaponAttributeCharge = Math.max(weaponAttributeCharge, 0)
 
     this.grid.movePlayer(enemyPos)

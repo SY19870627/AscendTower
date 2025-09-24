@@ -23,7 +23,6 @@ export interface EnemyDef {
   mods?: string[]
   minFloor?: number
 }
-export interface WeaponSpecial { name: string; damage: number; chargeMax: number; desc?: string }
 export type WeaponAttributeId = 'armor-break'
 
 export interface WeaponAttributeDef {
@@ -34,7 +33,7 @@ export interface WeaponAttributeDef {
   effect: 'ignore-defense'
 }
 
-export interface WeaponDef { id: string; name: string; atk: number; special: WeaponSpecial; desc?: string; minFloor?: number; attributeId?: WeaponAttributeId }
+export interface WeaponDef { id: string; name: string; atk: number; desc?: string; minFloor?: number; attributeId?: WeaponAttributeId }
 export interface ArmorDef { id: string; name: string; def: number; shield?: number; desc?: string; minFloor?: number }
 export interface PlayerStats { hp: number; mp: number }
 export interface ItemGrant { id: string; quantity?: number }
@@ -75,8 +74,6 @@ export interface CombatPreview {
   canWin: boolean
   lossHp: number
   rounds: number
-  specialUses?: number
-  finalCharge?: number
   playerHpRemaining?: number
   shieldRemaining?: number
 }
@@ -85,7 +82,6 @@ export interface EventOutcome {
   message: string
   hpDelta?: number
   setHp?: number
-  weaponChargeDelta?: number
   giveKey?: boolean
   grantItems?: ItemGrant[]
   coinDelta?: number
@@ -131,5 +127,3 @@ export interface NpcDef {
   outcome?: EventOutcome
   minFloor?: number
 }
-
-

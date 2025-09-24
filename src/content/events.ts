@@ -21,7 +21,6 @@ export const events: EventDef[] = [
         outcome: {
           message: '泉水洗過武器時發出嗡鳴，但力量也拉扯著你的身體。',
           hpDelta: -10,
-          weaponChargeDelta: 2,
           grantStatuses: [{ id: 'battle-focus' }]
         }
       },
@@ -58,7 +57,6 @@ export const events: EventDef[] = [
         outcome: {
           message: '你劃破手掌貼上石面，耳語使你的手臂更銳利。',
           hpDelta: -5,
-          weaponChargeDelta: 1,
           grantStatuses: [{ id: 'stone-skin' }],
           grantSkills: ["stone-ward"]
         }
@@ -87,7 +85,6 @@ export const events: EventDef[] = [
         outcome: {
           message: '鐵鏈崩斷，但你因此耗盡氣力。',
           hpDelta: -20,
-          weaponChargeDelta: 3,
           grantStatuses: [{ id: 'poisoned' }]
         }
       },
@@ -147,4 +144,3 @@ export const eventsById = new Map(events.map(event => [event.id, event]))
 export function getEventDef(id: string): EventDef | undefined {
   return eventsById.get(id)
 }
-

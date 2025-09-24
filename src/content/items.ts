@@ -19,7 +19,6 @@ const catalog: ItemDef[] = [
     minFloor: 2,
     effect: {
       message: '水晶發出低鳴，武器吸收了能量。',
-      weaponChargeDelta: 3
     }
   },
   {
@@ -50,7 +49,6 @@ const catalog: ItemDef[] = [
     effect: {
       message: '灼熱藥液在體內奔騰，武器渴望戰鬥。',
       hpDelta: -5,
-      weaponChargeDelta: 2
     },
     minFloor: 3
   },
