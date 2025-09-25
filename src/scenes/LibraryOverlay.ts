@@ -66,8 +66,8 @@ export class LibraryOverlay {
 
   private createUI() {
     const { width, height } = this.host.scale
-    const panelWidth = 680
-    const panelHeight = 440
+    const panelWidth = 820
+    const panelHeight = 520
     const depthBase = 3200
 
     this.backdrop = this.host.add
@@ -92,31 +92,31 @@ export class LibraryOverlay {
       .setDepth(depthBase + 2)
 
     this.listText = this.host.add
-      .text(panelLeft + 24, panelTop + 64, '', {
+      .text(panelLeft + 32, panelTop + 72, '', {
         fontSize: '16px',
         color: '#cfe',
         lineSpacing: 6,
-        wordWrap: { width: panelWidth / 2 - 36 }
+        wordWrap: { width: panelWidth / 2 - 64 }
       })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.detailText = this.host.add
-      .text(panelLeft + panelWidth / 2 + 12, panelTop + 64, '', {
+      .text(panelLeft + panelWidth / 2 + 28, panelTop + 72, '', {
         fontSize: '15px',
         color: '#ffe9a6',
         lineSpacing: 6,
-        wordWrap: { width: panelWidth / 2 - 36 }
+        wordWrap: { width: panelWidth / 2 - 68 }
       })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
 
     this.instructionText = this.host.add
-      .text(panelLeft + 24, panelTop + panelHeight - 96, '', {
+      .text(panelLeft + 32, panelTop + panelHeight - 120, '', {
         fontSize: '14px',
         color: '#cfe',
         lineSpacing: 4,
-        wordWrap: { width: panelWidth - 48 }
+        wordWrap: { width: panelWidth - 64 }
       })
       .setScrollFactor(0)
       .setDepth(depthBase + 2)
