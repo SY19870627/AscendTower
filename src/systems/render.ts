@@ -12,6 +12,8 @@ const SKILL_HOTKEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U']
 const TILE_TEXTURE_KEY = 'floor_wall'
 const SYMBOL_TEXTURE_KEY = 'symbol_tiles'
 
+const SHOW_TILE_BASES = false
+
 type SymbolConfig = {
   frame: number
   tint?: number
@@ -121,19 +123,26 @@ function updateTileSprites(
   activeBase: Set<string>,
   activeIcons: Set<string>
 ) {
-  const baseFrame = tile === 'wall' ? 1 : 0
-  const sprite = caches.base.get(posKey) ?? (() => {
-    const created = scene.add.image(drawX, drawY, TILE_TEXTURE_KEY, baseFrame)
-    created.setOrigin(0, 0)
-    created.setDepth(-1)
-    caches.base.set(posKey, created)
-    return created
-  })()
-  sprite.setFrame(baseFrame)
-  sprite.setPosition(drawX, drawY)
-  sprite.setDisplaySize(tileSize, tileSize)
-  sprite.setVisible(true)
-  activeBase.add(posKey)
+  if (SHOW_TILE_BASES) {
+    const baseFrame = tile === 'wall' ? 1 : 0
+    const sprite = caches.base.get(posKey) ?? (() => {
+      const created = scene.add.image(drawX, drawY, TILE_TEXTURE_KEY, baseFrame)
+      created.setOrigin(0, 0)
+      created.setDepth(-1)
+      caches.base.set(posKey, created)
+      return created
+    })()
+    sprite.setFrame(baseFrame)
+    sprite.setPosition(drawX, drawY)
+    sprite.setDisplaySize(tileSize, tileSize)
+    sprite.setVisible(true)
+    activeBase.add(posKey)
+  } else {
+    const sprite = caches.base.get(posKey)
+    if (sprite) {
+      sprite.setVisible(false)
+    }
+  }
 
   const symbolConfig = SYMBOL_BY_TILE[tile]
   if (symbolConfig) {
