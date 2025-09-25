@@ -33,6 +33,11 @@ import { ShopOverlay, type ShopResolution, type ShopInventoryEntry } from './Sho
 import { DialogueOverlay } from './DialogueOverlay'
 import { LibraryOverlay, type LibraryCategory } from './LibraryOverlay'
 
+type BranchEntranceState = {
+  pos: Vec2
+  branchKey: string | null
+}
+
 type FloorState = {
   grid: Grid
   weaponDrops: Map<string, WeaponDef>
@@ -42,10 +47,12 @@ type FloorState = {
   shopNodes: Map<string, ShopDef>
   itemDrops: Map<string, ItemDef>
   lastActionMessage: string
+  branchEntrances: Map<string, BranchEntranceState>
+  branchReturnPos: Vec2 | null
 }
 
 export const SAVE_KEY = 'ascend-tower-save-v1'
-const SAVE_VERSION = 1
+const SAVE_VERSION = 2
 
 type SerializedGridState = {
   w?: number
@@ -64,6 +71,7 @@ type SerializedGridState = {
 
 type SerializedFloorState = {
   floor: number
+  branchPath?: number[]
   grid: SerializedGridState
   weaponDrops?: Array<[string, string]>
   armorDrops?: Array<[string, string]>
@@ -72,15 +80,25 @@ type SerializedFloorState = {
   npcNodes?: Array<[string, string]>
   shopNodes?: Array<[string, string]>
   lastActionMessage?: string
+  branchEntrances?: Array<[
+    string,
+    {
+      pos: Vec2
+      branchKey?: string | null
+    }
+  ]>
+  branchReturnPos?: Vec2 | null
 }
 
 type SerializedGameState = {
   version?: number
   timestamp?: number
   floor?: number
+  branchPath?: number[]
   player?: SerializedPlayerState
   floorStates?: SerializedFloorState[]
   lastActionMessage?: string
+  nextBranchIndex?: Array<[string, number]>
 }
 
 export function hasSavedGame(): boolean {
@@ -143,13 +161,54 @@ export class GameScene extends Phaser.Scene {
   ]
   private endingTriggered = false
   private lifespanEndingTriggered = false
-  private readonly floorStates = new Map<number, FloorState>()
-  private pendingEntry: 'up' | 'down' | null = null
+  private readonly floorStates = new Map<string, FloorState>()
+  private branchPath: number[] = []
+  private branchEntrances = new Map<string, BranchEntranceState>()
+  private branchReturnPos: Vec2 | null = null
+  private readonly nextBranchIndex = new Map<string, number>()
+  private pendingEntry: 'up' | 'down' | 'branch' | 'return' | null = null
+  private pendingReturnFromBranchKey: string | null = null
   private pendingStartMode: 'load' | null = null
   private readonly playerState = new PlayerState()
 
+  private makeFloorKey(floor: number, branchPath: number[]): string {
+    if (!branchPath.length) return `${Math.max(1, Math.floor(floor))}`
+    const normalized = branchPath
+      .map(value => Math.max(0, Math.floor(value)))
+      .filter(value => Number.isFinite(value) && value > 0)
+    const base = Math.max(1, Math.floor(floor))
+    return normalized.length ? `${base}b${normalized.join('-')}` : `${base}`
+  }
+
+  private parseFloorKey(key: string): { floor: number; branchPath: number[] } {
+    const [floorPart, branchPart] = key.split('b')
+    const floor = Math.max(1, Number.parseInt(floorPart ?? '1', 10) || 1)
+    if (!branchPart) return { floor, branchPath: [] }
+
+    const branchPath = branchPart
+      .split('-')
+      .map(value => Math.max(0, Number.parseInt(value, 10) || 0))
+      .filter(value => value > 0)
+    return { floor, branchPath }
+  }
+
+  private getCurrentFloorKey(): string {
+    return this.makeFloorKey(this.floor, this.branchPath)
+  }
+
   get hasKey(): boolean {
     return this.playerState.hasKey
+  }
+
+  get isBranchFloor(): boolean {
+    return this.branchPath.length > 0
+  }
+
+  get floorDisplayName(): string {
+    if (!this.branchPath.length) {
+      return `樓層 ${this.floor}`
+    }
+    return `樓層 ${this.floor} · 支線 ${this.branchPath.join('.')}`
   }
 
   set hasKey(value: boolean) {
@@ -256,13 +315,29 @@ export class GameScene extends Phaser.Scene {
     return this.playerState.getArmorAttributeBonuses()
   }
 
-  init(data?: { floor?: number; reset?: boolean; entry?: 'up' | 'down'; startMode?: 'load' }) {
+  init(
+    data?: {
+      floor?: number
+      reset?: boolean
+      entry?: 'up' | 'down' | 'branch' | 'return'
+      branchPath?: number[]
+      returnFromBranchKey?: string | null
+      startMode?: 'load'
+    }
+  ) {
     if (data?.reset) this.resetPlayerState()
     this.floor = data?.floor ?? this.floor ?? 1
     this.pendingEntry = data?.entry ?? null
+    this.pendingReturnFromBranchKey = data?.returnFromBranchKey ?? null
     this.pendingStartMode = data?.startMode === 'load' ? 'load' : null
     this.endingTriggered = false
     this.lifespanEndingTriggered = false
+
+    if (Array.isArray(data?.branchPath)) {
+      this.branchPath = data.branchPath
+        .map(value => Math.max(0, Math.floor(Number(value))))
+        .filter(value => value > 0)
+    }
   }
 
   resetPlayerState() {
@@ -275,7 +350,12 @@ export class GameScene extends Phaser.Scene {
     this.itemDrops = new Map<string, ItemDef>()
     this.floorStates.clear()
     this.lastActionMessage = ''
+    this.branchPath = []
+    this.branchEntrances = new Map<string, BranchEntranceState>()
+    this.branchReturnPos = null
+    this.nextBranchIndex.clear()
     this.pendingEntry = null
+    this.pendingReturnFromBranchKey = null
     this.pendingStartMode = null
     this.endingTriggered = false
     this.lifespanEndingTriggered = false
@@ -462,7 +542,7 @@ export class GameScene extends Phaser.Scene {
 
 
   private ensureEndingTile() {
-    if (this.floor !== 10) {
+    if (this.floor !== 10 || this.isBranchFloor) {
         return
     }
 
@@ -490,7 +570,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private loadFloorState() {
-    const cached = this.floorStates.get(this.floor)
+    const key = this.getCurrentFloorKey()
+    const cached = this.floorStates.get(key)
     if (cached) {
       this.grid = cached.grid
       this.weaponDrops = cached.weaponDrops
@@ -500,13 +581,16 @@ export class GameScene extends Phaser.Scene {
       this.shopNodes = cached.shopNodes
       this.itemDrops = cached.itemDrops
       this.lastActionMessage = cached.lastActionMessage
+      this.branchEntrances = cached.branchEntrances
+      this.branchReturnPos = cached.branchReturnPos
       this.syncFloorLastAction()
       this.positionPlayerForEntry()
       return
     }
 
     const seed = (Date.now() ^ (this.floor << 8)) & 0xffff
-    this.grid = new Grid(14, 14, seed, { includeDownstairs: this.floor > 1 })
+    const includeDownstairs = this.isBranchFloor || this.floor > 1
+    this.grid = new Grid(14, 14, seed, { includeDownstairs })
     this.weaponDrops = new Map<string, WeaponDef>()
     this.armorDrops = new Map<string, ArmorDef>()
     this.eventNodes = new Map<string, EventDef>()
@@ -514,6 +598,12 @@ export class GameScene extends Phaser.Scene {
     this.shopNodes = new Map<string, ShopDef>()
     this.itemDrops = new Map<string, ItemDef>()
     this.lastActionMessage = ''
+    this.branchEntrances = new Map<string, BranchEntranceState>()
+    this.branchReturnPos = this.isBranchFloor
+      ? this.grid.stairsDownPos
+        ? { x: this.grid.stairsDownPos.x, y: this.grid.stairsDownPos.y }
+        : { x: this.grid.playerPos.x, y: this.grid.playerPos.y }
+      : null
 
     spawnWeapons(this)
     spawnArmors(this)
@@ -522,6 +612,7 @@ export class GameScene extends Phaser.Scene {
     this.spawnEvents()
     this.spawnNpcs()
     this.ensureEndingTile()
+    this.spawnBranchEntrances()
     if (!this.knownSkills.length) this.learnSkill('battle-shout', { silent: true })
 
     const state: FloorState = {
@@ -532,9 +623,11 @@ export class GameScene extends Phaser.Scene {
       npcNodes: this.npcNodes,
       shopNodes: this.shopNodes,
       itemDrops: this.itemDrops,
-      lastActionMessage: this.lastActionMessage
+      lastActionMessage: this.lastActionMessage,
+      branchEntrances: this.branchEntrances,
+      branchReturnPos: this.branchReturnPos
     }
-    this.floorStates.set(this.floor, state)
+    this.floorStates.set(key, state)
     this.positionPlayerForEntry()
   }
 
@@ -551,6 +644,39 @@ export class GameScene extends Phaser.Scene {
             : this.grid.getTile(fallback)
         this.grid.setPlayerPosition(fallback, underlying)
       }
+      return
+    }
+
+    if (entry === 'branch') {
+      const pos =
+        this.branchReturnPos ??
+        (this.grid.stairsDownPos ? { x: this.grid.stairsDownPos.x, y: this.grid.stairsDownPos.y } : this.grid.playerPos)
+      const underlying = this.grid.stairsDownPos ? 'stairs_down' : this.grid.getTile(pos)
+      this.branchReturnPos = { x: pos.x, y: pos.y }
+      const state = this.floorStates.get(this.getCurrentFloorKey())
+      if (state) state.branchReturnPos = this.branchReturnPos
+      this.grid.setPlayerPosition(this.branchReturnPos, underlying)
+      this.pendingReturnFromBranchKey = null
+      return
+    }
+
+    if (entry === 'return') {
+      const fromKey = this.pendingReturnFromBranchKey
+      this.pendingReturnFromBranchKey = null
+
+      let targetPos: Vec2 | null = null
+      if (fromKey) {
+        for (const entrance of this.branchEntrances.values()) {
+          if (entrance.branchKey === fromKey) {
+            targetPos = { x: entrance.pos.x, y: entrance.pos.y }
+            break
+          }
+        }
+      }
+
+      const pos = targetPos ?? (this.grid.stairsUpPos ? { x: this.grid.stairsUpPos.x, y: this.grid.stairsUpPos.y } : this.grid.playerPos)
+      const underlying = this.grid.getTile(pos)
+      this.grid.setPlayerPosition(pos, underlying)
       return
     }
 
@@ -585,7 +711,7 @@ export class GameScene extends Phaser.Scene {
     const canProceed = this.advanceTurn('move')
     if (!canProceed) return
 
-    const state = this.floorStates.get(this.floor)
+    const state = this.floorStates.get(this.getCurrentFloorKey())
     if (state) state.lastActionMessage = this.lastActionMessage
 
     const direction = clamped > this.floor ? 'up' : 'down'
@@ -594,7 +720,7 @@ export class GameScene extends Phaser.Scene {
     this.grid.detachPlayer()
 
     const entry = direction === 'up' ? 'down' : 'up'
-    this.scene.restart({ floor: clamped, entry })
+    this.scene.restart({ floor: clamped, entry, branchPath: [] })
   }
 
   private startEndingSequence(pos: Vec2) {
@@ -627,12 +753,59 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  transitionFloor(direction: 'up' | 'down') {
+  transitionFloor(direction: 'up' | 'down' | 'branch' | 'return') {
     const canProceed = this.advanceTurn('move')
     if (!canProceed) return
 
-    const state = this.floorStates.get(this.floor)
+    const state = this.floorStates.get(this.getCurrentFloorKey())
     if (state) state.lastActionMessage = this.lastActionMessage
+
+    if (direction === 'branch') {
+      if (this.isBranchFloor) {
+        draw(this)
+        return
+      }
+      const posKey = makePosKey(this.grid.playerPos.x, this.grid.playerPos.y)
+      const entrance = this.branchEntrances.get(posKey)
+      if (!entrance) {
+        draw(this)
+        return
+      }
+
+      let branchKey = entrance.branchKey
+      let branchPath: number[]
+      if (!branchKey) {
+        const parentKey = this.getCurrentFloorKey()
+        const nextIndex = (this.nextBranchIndex.get(parentKey) ?? 0) + 1
+        this.nextBranchIndex.set(parentKey, nextIndex)
+        branchPath = [...this.branchPath, nextIndex]
+        branchKey = this.makeFloorKey(this.floor, branchPath)
+        entrance.branchKey = branchKey
+        this.branchEntrances.set(posKey, entrance)
+      } else {
+        const parsed = this.parseFloorKey(branchKey)
+        branchPath = parsed.branchPath
+      }
+
+      this.grid.setTileUnderPlayer('stairs_branch')
+      this.grid.detachPlayer()
+      this.scene.restart({ floor: this.floor, entry: 'branch', branchPath })
+      return
+    }
+
+    if (direction === 'return') {
+      if (!this.branchPath.length) {
+        draw(this)
+        return
+      }
+      const branchKey = this.getCurrentFloorKey()
+      this.grid.setTileUnderPlayer('stairs_down')
+      this.grid.detachPlayer()
+
+      const parentPath = this.branchPath.slice(0, -1)
+      this.scene.restart({ floor: this.floor, entry: 'return', branchPath: parentPath, returnFromBranchKey: branchKey })
+      return
+    }
 
     const underlying = direction === 'up' ? 'stairs_up' : 'stairs_down'
     this.grid.setTileUnderPlayer(underlying)
@@ -645,11 +818,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     const entry = direction === 'up' ? 'down' : 'up'
-    this.scene.restart({ floor: targetFloor, entry })
+    this.scene.restart({ floor: targetFloor, entry, branchPath: [] })
   }
 
   syncFloorLastAction() {
-    const state = this.floorStates.get(this.floor)
+    const state = this.floorStates.get(this.getCurrentFloorKey())
     if (state) state.lastActionMessage = this.lastActionMessage
   }
   private snapshotGrid(grid: Grid): SerializedGridState {
@@ -707,9 +880,11 @@ export class GameScene extends Phaser.Scene {
     return grid
   }
 
-  private snapshotFloorState(floor: number, state: FloorState): SerializedFloorState {
+  private snapshotFloorState(floorKey: string, state: FloorState): SerializedFloorState {
+    const { floor, branchPath } = this.parseFloorKey(floorKey)
     return {
       floor,
+      branchPath,
       grid: this.snapshotGrid(state.grid),
       weaponDrops: Array.from(state.weaponDrops.entries()).map(([pos, weapon]) => [pos, weapon.id]),
       armorDrops: Array.from(state.armorDrops.entries()).map(([pos, armor]) => [pos, armor.id]),
@@ -717,7 +892,15 @@ export class GameScene extends Phaser.Scene {
       eventNodes: Array.from(state.eventNodes.entries()).map(([pos, event]) => [pos, event.id]),
       npcNodes: Array.from(state.npcNodes.entries()).map(([pos, npc]) => [pos, npc.id]),
       shopNodes: Array.from(state.shopNodes.entries()).map(([pos, shop]) => [pos, shop.id]),
-      lastActionMessage: state.lastActionMessage
+      lastActionMessage: state.lastActionMessage,
+      branchEntrances: Array.from(state.branchEntrances.entries()).map(([posKey, info]) => [
+        posKey,
+        {
+          pos: { x: info.pos.x, y: info.pos.y },
+          branchKey: info.branchKey ?? null
+        }
+      ]),
+      branchReturnPos: state.branchReturnPos ? { x: state.branchReturnPos.x, y: state.branchReturnPos.y } : null
     }
   }
 
@@ -761,6 +944,17 @@ export class GameScene extends Phaser.Scene {
       if (def) shopNodes.set(pos, def)
     }
 
+    const branchEntrances = new Map<string, BranchEntranceState>()
+    for (const [posKey, info] of data.branchEntrances ?? []) {
+      if (!info?.pos) continue
+      const pos = { x: info.pos.x, y: info.pos.y }
+      branchEntrances.set(posKey, { pos, branchKey: info.branchKey ?? null })
+    }
+
+    const branchReturnPos = data.branchReturnPos
+      ? { x: data.branchReturnPos.x, y: data.branchReturnPos.y }
+      : null
+
     return {
       grid,
       weaponDrops,
@@ -769,22 +963,26 @@ export class GameScene extends Phaser.Scene {
       npcNodes,
       shopNodes,
       itemDrops,
-      lastActionMessage: data.lastActionMessage ?? ''
+      lastActionMessage: data.lastActionMessage ?? '',
+      branchEntrances,
+      branchReturnPos
     }
   }
 
   private serializeGameState(): SerializedGameState {
     this.syncFloorLastAction()
-    const floorStates = Array.from(this.floorStates.entries()).map(([floor, state]) =>
-      this.snapshotFloorState(floor, state)
+    const floorStates = Array.from(this.floorStates.entries()).map(([floorKey, state]) =>
+      this.snapshotFloorState(floorKey, state)
     )
     return {
       version: SAVE_VERSION,
       timestamp: Date.now(),
       floor: this.floor,
+      branchPath: [...this.branchPath],
       player: this.playerState.serialize(),
       floorStates,
-      lastActionMessage: this.lastActionMessage
+      lastActionMessage: this.lastActionMessage,
+      nextBranchIndex: Array.from(this.nextBranchIndex.entries())
     }
   }
 
@@ -792,31 +990,46 @@ export class GameScene extends Phaser.Scene {
     if (!data || typeof data !== 'object') return false
     if (typeof data.version === 'number' && data.version > SAVE_VERSION) return false
 
-    const floorStates = new Map<number, FloorState>()
+    const floorStates = new Map<string, FloorState>()
     for (const entry of data.floorStates ?? []) {
       const restored = this.rebuildFloorState(entry)
-      if (restored) {
-        floorStates.set(entry.floor, restored)
-      }
+      if (!restored) continue
+      const key = this.makeFloorKey(entry.floor ?? 1, entry.branchPath ?? [])
+      floorStates.set(key, restored)
     }
 
     if (!floorStates.size) return false
 
     this.floorStates.clear()
-    for (const [floor, state] of floorStates.entries()) {
-      this.floorStates.set(floor, state)
+    for (const [key, state] of floorStates.entries()) {
+      this.floorStates.set(key, state)
     }
 
-    if (typeof data.floor === 'number' && floorStates.has(data.floor)) {
-      this.floor = data.floor
-    } else {
-      const first = floorStates.keys().next()
-      if (!first.done) {
-        this.floor = first.value
+    let targetKey: string | null = null
+    if (typeof data.floor === 'number') {
+      const branchPath = Array.isArray(data.branchPath)
+        ? data.branchPath.map(value => Math.max(0, Math.floor(Number(value)))).filter(value => value > 0)
+        : []
+      const candidate = this.makeFloorKey(data.floor, branchPath)
+      if (this.floorStates.has(candidate)) {
+        targetKey = candidate
       }
     }
 
-    const active = this.floorStates.get(this.floor)
+    if (!targetKey) {
+      const first = this.floorStates.keys().next()
+      if (!first.done) {
+        targetKey = first.value
+      }
+    }
+
+    if (!targetKey) return false
+
+    const targetMeta = this.parseFloorKey(targetKey)
+    this.floor = targetMeta.floor
+    this.branchPath = targetMeta.branchPath
+
+    const active = this.floorStates.get(targetKey)
     if (!active) return false
 
     this.grid = active.grid
@@ -827,12 +1040,37 @@ export class GameScene extends Phaser.Scene {
     this.shopNodes = active.shopNodes
     this.itemDrops = active.itemDrops
     this.lastActionMessage = active.lastActionMessage ?? ''
+    this.branchEntrances = active.branchEntrances
+    this.branchReturnPos = active.branchReturnPos
     this.pendingEntry = null
+    this.pendingReturnFromBranchKey = null
 
     if (data.player) {
       this.playerState.restore(data.player)
     } else {
       this.playerState.reset()
+    }
+
+    this.nextBranchIndex.clear()
+    if (Array.isArray(data.nextBranchIndex)) {
+      for (const [key, value] of data.nextBranchIndex) {
+        if (typeof key === 'string' && Number.isFinite(value)) {
+          this.nextBranchIndex.set(key, Math.max(0, Math.floor(value)))
+        }
+      }
+    }
+
+    for (const [key, state] of this.floorStates.entries()) {
+      const keyMeta = this.parseFloorKey(key)
+      let maxIndex = this.nextBranchIndex.get(key) ?? 0
+      for (const info of state.branchEntrances.values()) {
+        if (!info.branchKey) continue
+        const parsed = this.parseFloorKey(info.branchKey)
+        if (parsed.floor !== keyMeta.floor) continue
+        const last = parsed.branchPath[parsed.branchPath.length - 1] ?? 0
+        if (last > maxIndex) maxIndex = last
+      }
+      this.nextBranchIndex.set(key, maxIndex)
     }
 
     this.syncFloorLastAction()
@@ -953,6 +1191,44 @@ export class GameScene extends Phaser.Scene {
       const pos = this.grid.place('event')
       this.eventNodes.set(makePosKey(pos.x, pos.y), def)
     }
+  }
+
+  private spawnBranchEntrances() {
+    if (this.isBranchFloor) {
+      return
+    }
+
+    this.branchEntrances.clear()
+    if (this.floor <= 1) {
+      return
+    }
+
+    const spawnChance = Math.min(0.25 + this.floor * 0.05, 0.85)
+    if (this.grid.rng.next() > spawnChance) {
+      return
+    }
+
+    const spawnCount = Math.min(1 + Math.floor(this.floor / 5), 2)
+    for (let i = 0; i < spawnCount; i++) {
+      const pos = this.grid.place('stairs_branch')
+      const posKey = makePosKey(pos.x, pos.y)
+      this.branchEntrances.set(posKey, { pos, branchKey: null })
+      this.grid.connectTiles(this.grid.playerPos, pos)
+    }
+  }
+
+  tryEnterDoorBranch(): boolean {
+    if (this.isBranchFloor) {
+      return false
+    }
+
+    const pos = { x: this.grid.playerPos.x, y: this.grid.playerPos.y }
+    const posKey = makePosKey(pos.x, pos.y)
+    if (!this.branchEntrances.has(posKey)) {
+      this.branchEntrances.set(posKey, { pos, branchKey: null })
+    }
+
+    return true
   }
 
   startShop(pos: Vec2) {

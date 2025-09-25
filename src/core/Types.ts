@@ -6,6 +6,7 @@ export type Tile =
   | 'door'
   | 'stairs_up'
   | 'stairs_down'
+  | 'stairs_branch'
   | 'enemy'
   | 'player'
   | 'weapon'

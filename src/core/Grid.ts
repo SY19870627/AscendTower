@@ -38,6 +38,7 @@ export class Grid {
       t === 'key' ||
       t === 'stairs_up' ||
       t === 'stairs_down' ||
+      t === 'stairs_branch' ||
       t === 'enemy' ||
       t === 'player' ||
       t === 'door' ||
@@ -153,6 +154,24 @@ export class Grid {
   }
 
   private carvePath(a: Vec2, b: Vec2) {
+    const dx = Math.sign(b.x - a.x)
+    const dy = Math.sign(b.y - a.y)
+
+    let x = a.x
+    let y = a.y
+
+    while (x !== b.x) {
+      x += dx
+      if (this.tiles[y][x] === 'wall') this.tiles[y][x] = 'floor'
+    }
+
+    while (y !== b.y) {
+      y += dy
+      if (this.tiles[y][x] === 'wall') this.tiles[y][x] = 'floor'
+    }
+  }
+
+  connectTiles(a: Vec2, b: Vec2) {
     const dx = Math.sign(b.x - a.x)
     const dy = Math.sign(b.y - a.y)
 
