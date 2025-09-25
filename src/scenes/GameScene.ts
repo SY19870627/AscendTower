@@ -5,6 +5,7 @@ import type {
   EventDef,
   EventOutcome,
   EnemyDef,
+  MissionStatus,
   Vec2,
   WeaponDef,
   ItemDef,
@@ -283,6 +284,10 @@ export class GameScene extends Phaser.Scene {
     return this.playerState.skillCooldowns
   }
 
+  get missionStatuses(): MissionStatus[] {
+    return this.playerState.getMissionStatuses()
+  }
+
   get ageDisplay(): string {
     return this.playerState.getAgeDisplay()
   }
@@ -305,6 +310,13 @@ export class GameScene extends Phaser.Scene {
     const current = (this.lastActionMessage ?? '').trim()
     const merged = current.length ? current.split('\n').concat(additions) : additions
     this.lastActionMessage = merged.join('\n')
+  }
+
+  handleMissionMessages(messages: string[]) {
+    const additions = messages.map(line => line.trim()).filter(line => line.length > 0)
+    if (!additions.length) return
+    this.appendActionMessages(additions)
+    this.syncFloorLastAction()
   }
 
   getStatusBonuses() {
@@ -390,6 +402,8 @@ export class GameScene extends Phaser.Scene {
     this.libraryOverlay = new LibraryOverlay(this)
 
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => handleInput(this, e.key))
+    const floorMissionMessages = this.playerState.recordFloorReached(this.floor)
+    this.handleMissionMessages(floorMissionMessages)
     draw(this)
 
     this.setupJumpButton()
@@ -487,6 +501,7 @@ export class GameScene extends Phaser.Scene {
 
   private grantAllTestingRewards() {
     const messages: string[] = []
+    const missionMessages: string[] = []
 
     const ownedWeaponIds = new Set<string>()
     if (this.playerState.weapon?.id) ownedWeaponIds.add(this.playerState.weapon.id)
@@ -517,9 +532,10 @@ export class GameScene extends Phaser.Scene {
     for (const item of items) {
       if (inventoryIds.has(item.id)) continue
       const quantity = item.stackable ? 3 : 1
-      const message = this.playerState.addItemToInventory(item, quantity)
+      const { message, missionMessages: itemMissionMessages } = this.playerState.addItemToInventory(item, quantity)
       if (message) messages.push(message)
       inventoryIds.add(item.id)
+      if (itemMissionMessages.length) missionMessages.push(...itemMissionMessages)
     }
 
     for (const skill of skills) {
@@ -537,6 +553,9 @@ export class GameScene extends Phaser.Scene {
 
     this.appendActionMessages(messages)
     this.syncFloorLastAction()
+    if (missionMessages.length) {
+      this.handleMissionMessages(missionMessages)
+    }
     draw(this)
   }
 
@@ -1313,6 +1332,13 @@ export class GameScene extends Phaser.Scene {
       this.grid.setTileUnderPlayer('floor')
     }
     const lines: string[] = []
+    const missionLines: string[] = []
+    if (Array.isArray(npc.offeredMissionIds)) {
+      for (const missionId of npc.offeredMissionIds) {
+        const results = this.playerState.unlockMission(missionId)
+        if (results.length) missionLines.push(...results)
+      }
+    }
     if (npc.postMessage) lines.push(npc.postMessage)
     if (npc.outcome) {
       const outcomeMessage = this.applyEventOutcome(npc.outcome)
@@ -1322,7 +1348,11 @@ export class GameScene extends Phaser.Scene {
       lines.push(`${npc.name} 感激地點點頭。`)
     }
     this.appendActionMessages(lines)
-    this.syncFloorLastAction()
+    if (missionLines.length) {
+      this.handleMissionMessages(missionLines)
+    } else {
+      this.syncFloorLastAction()
+    }
     draw(this)
   }
   acquireWeapon(weapon: WeaponDef, options?: { silent?: boolean }): string[] {
@@ -1405,12 +1435,25 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  addItemToInventory(item: ItemDef, quantity = 1, options?: { silent?: boolean }): string {
-    const message = this.playerState.addItemToInventory(item, quantity)
+  addItemToInventory(
+    item: ItemDef,
+    quantity = 1,
+    options?: { silent?: boolean; deferMissionMessages?: boolean }
+  ): { message: string; missionMessages: string[] } {
+    const result = this.playerState.addItemToInventory(item, quantity)
     if (!options?.silent) {
-      this.appendActionMessages([message])
+      this.appendActionMessages([result.message])
     }
-    return message
+    if (!options?.deferMissionMessages) {
+      if (result.missionMessages.length) {
+        this.handleMissionMessages(result.missionMessages)
+      } else if (!options?.silent) {
+        this.syncFloorLastAction()
+      }
+    } else if (!options?.silent) {
+      this.syncFloorLastAction()
+    }
+    return result
   }
 
   useInventorySlot(index: number): boolean {
@@ -1445,12 +1488,16 @@ export class GameScene extends Phaser.Scene {
     return true
   }
   applyEventOutcome(outcome: EventOutcome): string {
-    const { message } = this.playerState.applyEventOutcome(outcome)
-    this.lastActionMessage = message
-    this.syncFloorLastAction()
+    const result = this.playerState.applyEventOutcome(outcome)
+    this.lastActionMessage = result.message
+    if (result.missionMessages.length) {
+      this.handleMissionMessages(result.missionMessages)
+    } else {
+      this.syncFloorLastAction()
+    }
     this.cameras.main.flash(90, 120, 220, 255)
     draw(this)
-    return message
+    return result.message
   }
   startBattle(enemyPos: Vec2) {
     if (this.libraryOverlay?.isActive) this.libraryOverlay.close()
@@ -1511,7 +1558,9 @@ export class GameScene extends Phaser.Scene {
     this.grid.setTileUnderPlayer('floor')
 
     const rewardMessages: string[] = []
+    const missionMessages: string[] = []
     const drop = enemy.coinDrop
+    let coinsAwarded = 0
     if (drop) {
       const min = Math.max(0, Math.floor(drop.min))
       const max = Math.max(min, Math.floor(drop.max))
@@ -1519,9 +1568,15 @@ export class GameScene extends Phaser.Scene {
       if (coins > 0) {
         const before = this.coins
         this.coins = before + coins
+        coinsAwarded = coins
         rewardMessages.push('擊敗 ' + enemy.name + '，獲得 ' + coins + ' 金幣。')
         rewardMessages.push('金幣：' + before + ' -> ' + this.coins)
       }
+    }
+
+    missionMessages.push(...this.playerState.recordEnemyDefeat(enemy))
+    if (coinsAwarded > 0) {
+      missionMessages.push(...this.playerState.recordCoinsGained(coinsAwarded))
     }
 
     this.cameras.main.flash(120, 80, 200, 255)
@@ -1529,6 +1584,10 @@ export class GameScene extends Phaser.Scene {
     if (rewardMessages.length) {
       this.appendActionMessages(rewardMessages)
       this.syncFloorLastAction()
+    }
+
+    if (missionMessages.length) {
+      this.handleMissionMessages(missionMessages)
     }
 
     draw(this)
@@ -1550,13 +1609,20 @@ export class GameScene extends Phaser.Scene {
     const before = this.coins
     this.coins = Math.max(this.coins - cost, 0)
     const amount = Math.max(entry.offer.quantity ?? 1, 1)
-    const gainMessage = this.addItemToInventory(entry.item, amount, { silent: true })
+    const addition = this.addItemToInventory(entry.item, amount, {
+      silent: true,
+      deferMissionMessages: true
+    })
     const summary = `花費 ${cost} 金幣購得 ${entry.item.name}${amount > 1 ? ` x${amount}` : ''}。`
     const details = `金幣：${before} -> ${this.coins}`
-    this.appendActionMessages([summary, gainMessage, details])
+    this.appendActionMessages([summary, addition.message, details])
+    this.syncFloorLastAction()
+    if (addition.missionMessages.length) {
+      this.handleMissionMessages(addition.missionMessages)
+    }
     draw(this)
     return { success: true, message: `${summary}
-${gainMessage}
+${addition.message}
 ${details}`, coins: this.coins }
   }
 

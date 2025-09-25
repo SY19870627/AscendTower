@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import { TILE } from '../content/tilesets'
 import { enemies } from '../content/enemies'
-import type { SkillDef } from '../core/Types'
+import type { MissionStatus, SkillDef } from '../core/Types'
 import { getEffectiveCombatStats } from './combat'
 
 import { getWeaponAttributes, getWeaponAttributeChargeMax, isWeaponAttributeReady, normalizeWeaponAttributeCharges } from '../game/weapons/weaponAttributes'
@@ -436,6 +436,46 @@ export function draw(scene: any) {
     color: skillColor
   })
   currentY += Math.max(skillText.split('\n').length, 1) * lineHeight + sectionGap
+
+  const missionStatuses: MissionStatus[] = scene.missionStatuses ?? []
+  const missionLines = missionStatuses.length
+    ? missionStatuses.flatMap(status => {
+        const bullet = status.completed ? '✔' : '○'
+        const goal = status.def.goal
+        const targetTotal = Math.max(goal.target ?? 0, 0)
+        const clampedProgress = targetTotal > 0 ? Math.min(status.progress, targetTotal) : status.progress
+        let progressLabel = ''
+        switch (goal.type) {
+          case 'reach-floor':
+            progressLabel = `進度 ${clampedProgress}/${goal.target}`
+            break
+          case 'defeat-enemies':
+            progressLabel = `擊敗 ${clampedProgress}/${goal.target}`
+            break
+          case 'collect-items':
+            progressLabel = `收集 ${clampedProgress}/${goal.target}`
+            break
+          case 'collect-coins':
+            progressLabel = `獲得 ${clampedProgress}/${goal.target}`
+            break
+        }
+        if (!progressLabel.length) {
+          progressLabel = `進度 ${clampedProgress}/${targetTotal}`
+        }
+        const progressLine = status.completed ? '  已完成。' : `  ${progressLabel}`
+        const descriptionLine = `  ${status.def.description}`
+        return [`${bullet} ${status.def.title}`, progressLine, descriptionLine]
+      })
+    : ['（暫無任務）']
+  const missionHeader = '任務：'
+  const missionText = [missionHeader, ...missionLines].join('\n')
+  const missionColor = missionStatuses.some(status => status.completed) ? '#b0f4b5' : '#cfe'
+  addText(scene, activeTextIds, 'missions', statsStartX, currentY, missionText, {
+    fontSize: '14px',
+    lineSpacing: 4,
+    color: missionColor
+  })
+  currentY += Math.max(missionText.split('\n').length, 1) * lineHeight + sectionGap
 
   const inventoryStacks: any[] = scene.inventory ?? []
   const inventoryLines = inventoryStacks.length
