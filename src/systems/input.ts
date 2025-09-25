@@ -97,9 +97,6 @@ export function handleInput(scene: any, key: string) {
     case 'stairs_up':
       scene.transitionFloor?.(scene.isBranchFloor ? 'return' : 'up')
       return
-    case 'stairs_down':
-      scene.transitionFloor?.(scene.isBranchFloor ? 'return' : 'down')
-      return
     case 'stairs_branch':
       scene.transitionFloor?.('branch')
       return

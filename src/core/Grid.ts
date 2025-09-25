@@ -2,7 +2,6 @@ import type { Tile, Vec2 } from './Types'
 import { RNG } from './RNG'
 
 type GridOptions = {
-  includeDownstairs?: boolean
   enemyCount?: number
   wallThickness?: number
 }
@@ -15,7 +14,6 @@ export class Grid {
   keyPos!: Vec2
   doorPos!: Vec2
   stairsUpPos!: Vec2
-  stairsDownPos: Vec2 | null = null
   playerPos!: Vec2
   enemyPos: Vec2[] = []
   tileUnderPlayer: Tile = 'floor'
@@ -33,7 +31,7 @@ export class Grid {
       Math.min(Math.floor((this.w - 1) / 2), Math.floor((this.h - 1) / 2))
     )
     this.wallThickness = Math.max(0, Math.min(normalizedThickness, maxThickness))
-    this.generate(options)
+    this.generate()
   }
 
   inBounds(p: Vec2) {
@@ -46,7 +44,6 @@ export class Grid {
       t === 'floor' ||
       t === 'key' ||
       t === 'stairs_up' ||
-      t === 'stairs_down' ||
       t === 'stairs_branch' ||
       t === 'enemy' ||
       t === 'player' ||
@@ -123,9 +120,7 @@ export class Grid {
     }
   }
 
-  private generate(options?: GridOptions) {
-    const includeDownstairs = options?.includeDownstairs ?? false
-
+  private generate() {
     for (let y = 0; y < this.h; y++) {
       for (let x = 0; x < this.w; x++) {
         if (
@@ -139,15 +134,8 @@ export class Grid {
       }
     }
 
-    if (includeDownstairs) {
-      const downPos = this.place('stairs_down')
-      this.stairsDownPos = downPos
-      this.setPlayerPosition(downPos, 'stairs_down')
-    } else {
-      this.stairsDownPos = null
-      const startPos = this.place('player')
-      this.setPlayerPosition(startPos, 'floor')
-    }
+    const startPos = this.place('player')
+    this.setPlayerPosition(startPos, 'floor')
 
     this.keyPos = this.place('key')
     this.doorPos = this.place('door')
@@ -156,9 +144,6 @@ export class Grid {
     this.carvePath(this.playerPos, this.keyPos)
     this.carvePath(this.keyPos, this.doorPos)
     this.carvePath(this.doorPos, this.stairsUpPos)
-    if (this.stairsDownPos) {
-      this.carvePath(this.stairsDownPos, this.keyPos)
-    }
   }
 
   private carvePath(a: Vec2, b: Vec2) {
