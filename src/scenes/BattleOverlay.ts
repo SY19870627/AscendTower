@@ -3,6 +3,7 @@ import type { ArmorDef, EnemyDef, Vec2, WeaponAttributeDef, WeaponAttributeId, W
 import type { GameScene } from './GameScene'
 
 import { advanceWeaponAttributeStates, buildWeaponAttributeStates, type WeaponAttributeRuntimeState } from '../game/weapons/weaponAttributes'
+import { getArmorAttributes, sumArmorAttributeBonuses } from '../game/armors/armorAttributes'
 
 export type BattleInitData = {
   enemy: EnemyDef
@@ -75,8 +76,11 @@ export class BattleOverlay {
     this.playerArmor = data.player.armor
     this.playerHp = data.player.hp
     this.startingHp = data.player.hp
+    const armorAttributes = getArmorAttributes(data.player.armor?.attributeIds ?? [])
+    const armorBonuses = sumArmorAttributeBonuses(armorAttributes)
     this.playerAtkBase = (data.player.weapon?.atk ?? 0) + (statusBonuses.atk ?? 0)
-    this.playerDef = (data.player.armor?.def ?? 0) + (statusBonuses.def ?? 0)
+    this.playerDef =
+      (data.player.armor?.def ?? 0) + (statusBonuses.def ?? 0) + (armorBonuses.def ?? 0)
 
     const chargeEntries = Array.isArray(data.player.weaponAttributeCharges) ? data.player.weaponAttributeCharges : []
     let initialChargeSource: Map<WeaponAttributeId, number> | null = null
@@ -244,7 +248,17 @@ export class BattleOverlay {
 
     const armorLines: string[] = []
     if (this.playerArmor) {
-      armorLines.push(`防具：${this.playerArmor.name}（防禦 +${this.playerArmor.def}）`)
+      const armorAttributes = getArmorAttributes(this.playerArmor.attributeIds ?? [])
+      const armorBonuses = sumArmorAttributeBonuses(armorAttributes)
+      const totalDef = this.playerArmor.def + armorBonuses.def
+      const bonusText = armorBonuses.def ? `，屬性 +${armorBonuses.def}` : ''
+      armorLines.push(`防具：${this.playerArmor.name}（防禦 +${totalDef}${bonusText}）`)
+      if (armorAttributes.length) {
+        for (const attribute of armorAttributes) {
+          armorLines.push(`屬性 ${attribute.name}`)
+          armorLines.push(attribute.description)
+        }
+      }
       if (this.playerArmor.desc) armorLines.push(this.playerArmor.desc)
     }
 
