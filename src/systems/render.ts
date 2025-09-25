@@ -308,16 +308,43 @@ export function draw(scene: any) {
   for (let y = 0; y < grid.h; y++) {
     for (let x = 0; x < grid.w; x++) {
       const tile = grid.tiles[y][x]
+      const displayTile = (() => {
+        if (tile === 'enemy' || tile === 'weapon' || tile === 'armor' || tile === 'item') {
+          return 'floor'
+        }
+        if (tile === 'wall') {
+          if (x === 0 || y === 0 || x === grid.w - 1 || y === grid.h - 1) {
+            return 'wall'
+          }
+          return 'floor'
+        }
+        return tile
+      })()
       const drawX = baseX + x * tileSize
       const drawY = baseY + y * tileSize
       const posKey = makePosKey(x, y)
 
-      updateTileSprites(scene, caches, posKey, tile, drawX, drawY, tileSize, activeBaseTiles, activeIconTiles)
+      updateTileSprites(
+        scene,
+        caches,
+        posKey,
+        displayTile,
+        drawX,
+        drawY,
+        tileSize,
+        activeBaseTiles,
+        activeIconTiles
+      )
 
       gfx.lineStyle(1, 0x0d1414, 0.4)
       gfx.strokeRect(drawX + 0.5, drawY + 0.5, tileSize - 1, tileSize - 1)
     }
   }
+
+  const borderWidth = grid.w * tileSize - 1
+  const borderHeight = grid.h * tileSize - 1
+  gfx.lineStyle(1, 0xe4f1f1, 0.75)
+  gfx.strokeRect(baseX + 0.5, baseY + 0.5, borderWidth, borderHeight)
 
   hideUnusedSprites(caches.base, activeBaseTiles)
   hideUnusedSprites(caches.icons, activeIconTiles)

@@ -207,6 +207,15 @@ export class GameScene extends Phaser.Scene {
     return this.makeFloorKey(this.floor, this.branchPath)
   }
 
+  private getWallThicknessForFloor(floor: number): number {
+    const normalized = Math.max(1, Math.floor(floor))
+    if (normalized <= 2) return 3
+    if (normalized <= 6) return 2
+    if (normalized <= 9) return 1
+    if (normalized === 10) return 0
+    return 1
+  }
+
   get hasKey(): boolean {
     return this.playerState.hasKey
   }
@@ -622,7 +631,8 @@ export class GameScene extends Phaser.Scene {
     const includeDownstairs = this.isBranchFloor || this.floor > 1
     const forcedEnemies = buildForcedSpawnList(enemies, this.floor)
     const enemyCount = forcedEnemies.length || 5
-    this.grid = new Grid(11, 11, seed, { includeDownstairs, enemyCount })
+    const wallThickness = this.getWallThicknessForFloor(this.floor)
+    this.grid = new Grid(11, 11, seed, { includeDownstairs, enemyCount, wallThickness })
     this.weaponDrops = new Map<string, WeaponDef>()
     this.armorDrops = new Map<string, ArmorDef>()
     this.eventNodes = new Map<string, EventDef>()
