@@ -72,7 +72,6 @@ type SerializedGridState = {
   keyPos?: Vec2
   doorPos?: Vec2
   stairsUpPos?: Vec2
-  stairsDownPos?: Vec2 | null
   enemyPos?: Vec2[]
   hasPlayer?: boolean
   rngState?: number
@@ -628,11 +627,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     const seed = (Date.now() ^ (this.floor << 8)) & 0xffff
-    const includeDownstairs = this.isBranchFloor || this.floor > 1
     const forcedEnemies = buildForcedSpawnList(enemies, this.floor)
     const enemyCount = forcedEnemies.length || 5
     const wallThickness = this.getWallThicknessForFloor(this.floor)
-    this.grid = new Grid(11, 11, seed, { includeDownstairs, enemyCount, wallThickness })
+    this.grid = new Grid(11, 11, seed, { enemyCount, wallThickness })
     this.weaponDrops = new Map<string, WeaponDef>()
     this.armorDrops = new Map<string, ArmorDef>()
     this.eventNodes = new Map<string, EventDef>()
@@ -643,9 +641,7 @@ export class GameScene extends Phaser.Scene {
     this.lastActionMessage = ''
     this.branchEntrances = new Map<string, BranchEntranceState>()
     this.branchReturnPos = this.isBranchFloor
-      ? this.grid.stairsDownPos
-        ? { x: this.grid.stairsDownPos.x, y: this.grid.stairsDownPos.y }
-        : { x: this.grid.playerPos.x, y: this.grid.playerPos.y }
+      ? { x: this.grid.playerPos.x, y: this.grid.playerPos.y }
       : null
 
     if (forcedEnemies.length) {
@@ -688,23 +684,26 @@ export class GameScene extends Phaser.Scene {
     const entry = this.pendingEntry
     this.pendingEntry = null
 
+    const getUnderlyingAt = (pos: Vec2): Tile => {
+      if (this.grid.hasActivePlayer() && pos.x === this.grid.playerPos.x && pos.y === this.grid.playerPos.y) {
+        return this.grid.getTileUnderPlayer()
+      }
+      const tile = this.grid.getTile(pos)
+      return tile === 'player' ? 'floor' : tile
+    }
+
     if (!entry) {
       if (!this.grid.hasActivePlayer()) {
-        const fallback = this.grid.stairsDownPos ?? this.grid.stairsUpPos ?? this.grid.playerPos
-        const underlying =
-          fallback === this.grid.stairsDownPos ? 'stairs_down'
-            : fallback === this.grid.stairsUpPos ? 'stairs_up'
-            : this.grid.getTile(fallback)
+        const fallback = this.grid.stairsUpPos ?? this.grid.playerPos
+        const underlying = getUnderlyingAt(fallback)
         this.grid.setPlayerPosition(fallback, underlying)
       }
       return
     }
 
     if (entry === 'branch') {
-      const pos =
-        this.branchReturnPos ??
-        (this.grid.stairsDownPos ? { x: this.grid.stairsDownPos.x, y: this.grid.stairsDownPos.y } : this.grid.playerPos)
-      const underlying = this.grid.stairsDownPos ? 'stairs_down' : this.grid.getTile(pos)
+      const pos = this.branchReturnPos ?? { x: this.grid.playerPos.x, y: this.grid.playerPos.y }
+      const underlying = getUnderlyingAt(pos)
       this.branchReturnPos = { x: pos.x, y: pos.y }
       const state = this.floorStates.get(this.getCurrentFloorKey())
       if (state) state.branchReturnPos = this.branchReturnPos
@@ -728,19 +727,21 @@ export class GameScene extends Phaser.Scene {
       }
 
       const pos = targetPos ?? (this.grid.stairsUpPos ? { x: this.grid.stairsUpPos.x, y: this.grid.stairsUpPos.y } : this.grid.playerPos)
-      const underlying = this.grid.getTile(pos)
+      const underlying = getUnderlyingAt(pos)
       this.grid.setPlayerPosition(pos, underlying)
       return
     }
 
-    if (entry === 'down' && this.grid.stairsDownPos) {
-      this.grid.setPlayerPosition(this.grid.stairsDownPos, 'stairs_down')
+    if (entry === 'down') {
+      const pos = { x: this.grid.playerPos.x, y: this.grid.playerPos.y }
+      const underlying = getUnderlyingAt(pos)
+      this.grid.setPlayerPosition(pos, underlying)
       return
     }
 
     if (entry === 'up') {
       const pos = this.grid.stairsUpPos ?? this.grid.playerPos
-      const underlying = this.grid.stairsUpPos ? 'stairs_up' : this.grid.getTile(pos)
+      const underlying = getUnderlyingAt(pos)
       this.grid.setPlayerPosition(pos, underlying)
     }
   }
@@ -768,7 +769,7 @@ export class GameScene extends Phaser.Scene {
     if (state) state.lastActionMessage = this.lastActionMessage
 
     const direction = clamped > this.floor ? 'up' : 'down'
-    const underlying = direction === 'up' ? 'stairs_up' : 'stairs_down'
+    const underlying = direction === 'up' ? 'stairs_up' : 'floor'
     this.grid.setTileUnderPlayer(underlying)
     this.grid.detachPlayer()
 
@@ -852,7 +853,7 @@ export class GameScene extends Phaser.Scene {
         return
       }
       const branchKey = this.getCurrentFloorKey()
-      this.grid.setTileUnderPlayer('stairs_down')
+      this.grid.setTileUnderPlayer('stairs_up')
       this.grid.detachPlayer()
 
       const parentPath = this.branchPath.slice(0, -1)
@@ -860,7 +861,7 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    const underlying = direction === 'up' ? 'stairs_up' : 'stairs_down'
+    const underlying = direction === 'up' ? 'stairs_up' : 'floor'
     this.grid.setTileUnderPlayer(underlying)
     this.grid.detachPlayer()
 
@@ -888,7 +889,6 @@ export class GameScene extends Phaser.Scene {
       keyPos: { x: grid.keyPos.x, y: grid.keyPos.y },
       doorPos: { x: grid.doorPos.x, y: grid.doorPos.y },
       stairsUpPos: { x: grid.stairsUpPos.x, y: grid.stairsUpPos.y },
-      stairsDownPos: grid.stairsDownPos ? { x: grid.stairsDownPos.x, y: grid.stairsDownPos.y } : null,
       enemyPos: grid.enemyPos.map(pos => ({ x: pos.x, y: pos.y })),
       rngState: grid.rng.getState(),
       hasPlayer: grid.hasActivePlayer()
@@ -911,7 +911,6 @@ export class GameScene extends Phaser.Scene {
     if (data.keyPos) grid.keyPos = { x: data.keyPos.x, y: data.keyPos.y }
     if (data.doorPos) grid.doorPos = { x: data.doorPos.x, y: data.doorPos.y }
     if (data.stairsUpPos) grid.stairsUpPos = { x: data.stairsUpPos.x, y: data.stairsUpPos.y }
-    grid.stairsDownPos = data.stairsDownPos ? { x: data.stairsDownPos.x, y: data.stairsDownPos.y } : null
 
     const playerPos = data.playerPos ?? grid.playerPos
     const tileUnder = (data.tileUnderPlayer ?? grid.getTileUnderPlayer()) as Tile

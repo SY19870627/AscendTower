@@ -25,7 +25,6 @@ const SYMBOL_BY_TILE: Record<string, SymbolConfig> = {
   key: { frame: 1 },
   door: { frame: 2 },
   stairs_up: { frame: 3 },
-  stairs_down: { frame: 3, flipY: true },
   stairs_branch: { frame: 3, tint: 0x8fdcff },
   enemy: { frame: 4 },
   weapon: { frame: 5 },
@@ -227,8 +226,6 @@ function describeTile(scene: any, tile: string, x: number, y: number): string | 
       return `門：${scene.hasKey ? '可開啟' : '上鎖'}`
     case 'stairs_up':
       return '樓梯：向上'
-    case 'stairs_down':
-      return '樓梯：向下'
     case 'stairs_branch':
       return '樓梯：支線'
     default:
@@ -313,10 +310,7 @@ export function draw(scene: any) {
           return 'floor'
         }
         if (tile === 'wall') {
-          if (x === 0 || y === 0 || x === grid.w - 1 || y === grid.h - 1) {
-            return 'wall'
-          }
-          return 'floor'
+          return 'wall'
         }
         return tile
       })()
