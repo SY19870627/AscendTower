@@ -6,13 +6,14 @@ export const npcs: NpcDef[] = [
     name: '塔樓老者',
     lines: [
       '天梯會記住你踏出的每一步。',
-      '調勻呼吸，盯緊目標，一層層攀上去。'
+      '若能帶回兩株療傷藥草，證明你已懂得照護同伴。'
     ],
-    postMessage: '老者傳授了一個簡易吐納法。',
+    postMessage: '老者遞來竹籃，要你沿途留心療草。',
     outcome: {
       message: "聽了指點後，你覺得心神安穩。",
       hpDelta: 8
-    }
+    },
+    offeredMissionIds: ['gather-healing-herbs']
   },
   {
     id: 'scout',
@@ -30,12 +31,14 @@ export const npcs: NpcDef[] = [
     minFloor: 3,
     lines: [
       '我替每位陣亡挑戰者記錄遺物。',
-      '把這些帶上路，讓故事延續。'
+      '把這些帶上路，讓故事延續。',
+      '若你擊敗五名敵人，記得回來告訴我。'
     ],
     outcome: {
       message: '典藏師默默遞給你保存良好的補給品。',
       grantItems: [{ id: 'iron-ration', quantity: 1 }]
-    }
+    },
+    offeredMissionIds: ['curator-salvage']
   },
   {
     id: 'battle-scholar',

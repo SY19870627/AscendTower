@@ -1,7 +1,10 @@
 import type {
   ArmorDef,
+  EnemyDef,
   EventOutcome,
   ItemDef,
+  MissionDef,
+  MissionStatus,
   SkillDef,
   StatusDef,
   StatusGrant,
@@ -14,6 +17,7 @@ import { getStatusDef } from '../../content/statuses'
 import { getSkillDef, skills } from '../../content/skills'
 import { getWeaponDef } from '../../content/weapons'
 import { getArmorDef } from '../../content/armors'
+import { missions, getMissionDef } from '../../content/missions'
 import { getWeaponAttributes, normalizeWeaponAttributeCharge, normalizeWeaponAttributeCharges } from '../weapons/weaponAttributes'
 import { getArmorAttributes, sumArmorAttributeBonuses } from '../armors/armorAttributes'
 
@@ -37,12 +41,16 @@ export type SerializedPlayerState = {
   knownSkills?: string[]
   skillCooldowns?: [string, number][]
   ageHalfMonths?: number
+  missionProgress?: [string, number][]
+  completedMissions?: string[]
+  unlockedMissions?: string[]
 }
 
 
 type ApplyOutcomeResult = {
   message: string
   lines: string[]
+  missionMessages: string[]
 }
 
 type PlayerStateConfig = {
@@ -77,6 +85,9 @@ export class PlayerState {
   activeStatuses: ActiveStatus[] = []
   knownSkills: SkillDef[] = []
   skillCooldowns = new Map<string, number>()
+  private missionProgress = new Map<string, number>()
+  private unlockedMissionIds = new Set<string>()
+  private completedMissionIds = new Set<string>()
   private ageHalfMonths = DEFAULT_START_AGE_HALF_MONTHS
 
   private readonly defaults: Required<PlayerStateConfig>
@@ -133,6 +144,7 @@ export class PlayerState {
     this.stats = { hp: this.defaults.baseHp, mp: this.defaults.baseMp }
     this.coins = this.defaults.startingCoins
     this.equipDefaultGear()
+    this.initializeMissionState({ silent: true })
   }
 
   reset() {
@@ -151,12 +163,162 @@ export class PlayerState {
     this.ageHalfMonths = DEFAULT_START_AGE_HALF_MONTHS
     this.equipDefaultGear()
     this.ensureDefaultSkills({ silent: true })
+    this.missionProgress.clear()
+    this.completedMissionIds.clear()
+    this.initializeMissionState({ silent: true })
   }
 
   ensureDefaultSkills(options?: { silent?: boolean }) {
     for (const id of this.defaults.defaultSkillIds) {
       this.learnSkill(id, options)
     }
+  }
+
+  private ensureMissionEntries() {
+    for (const mission of missions) {
+      if (!this.missionProgress.has(mission.id)) {
+        this.missionProgress.set(mission.id, 0)
+      }
+    }
+  }
+
+  private initializeMissionState(options?: { silent?: boolean }) {
+    this.ensureMissionEntries()
+    this.unlockedMissionIds.clear()
+    for (const mission of missions) {
+      if (mission.autoUnlock === false) continue
+      this.unlockMission(mission.id, { silent: options?.silent ?? false })
+    }
+  }
+
+  unlockMission(id: string, options?: { silent?: boolean }): string[] {
+    const mission = getMissionDef(id)
+    if (!mission) return []
+    this.ensureMissionEntries()
+    if (this.unlockedMissionIds.has(mission.id)) return []
+    this.unlockedMissionIds.add(mission.id)
+    const lines: string[] = []
+    if (!options?.silent) {
+      lines.push(`獲得任務：${mission.title}`)
+    }
+    const target = Math.max(0, Math.floor(mission.goal.target ?? 0))
+    const progress = this.missionProgress.get(mission.id) ?? 0
+    if (progress >= target) {
+      lines.push(...this.completeMission(mission))
+    }
+    return lines
+  }
+
+  private isMissionUnlocked(id: string): boolean {
+    return this.unlockedMissionIds.has(id)
+  }
+
+  getMissionStatuses(): MissionStatus[] {
+    this.ensureMissionEntries()
+    return missions
+      .filter(mission => this.unlockedMissionIds.has(mission.id))
+      .map(mission => {
+        const progress = this.missionProgress.get(mission.id) ?? 0
+        const target = Math.max(0, Math.floor(mission.goal.target ?? 0))
+        const completed = this.completedMissionIds.has(mission.id) || progress >= target
+        return { def: mission, progress, target, completed }
+      })
+  }
+
+  private completeMission(mission: MissionDef): string[] {
+    if (!this.unlockedMissionIds.has(mission.id)) return []
+    if (this.completedMissionIds.has(mission.id)) return []
+    this.completedMissionIds.add(mission.id)
+    const lines: string[] = [`任務完成：${mission.title}`]
+    if (mission.reward) {
+      const rewardResult = this.applyEventOutcome(mission.reward)
+      if (rewardResult.message.trim().length) {
+        lines.push(rewardResult.message.trim())
+      }
+      if (rewardResult.missionMessages.length) {
+        lines.push(...rewardResult.missionMessages)
+      }
+    }
+    return lines
+  }
+
+  recordFloorReached(floor: number): string[] {
+    this.ensureMissionEntries()
+    if (!Number.isFinite(floor)) return []
+    const normalized = Math.max(1, Math.floor(floor))
+    const messages: string[] = []
+    for (const mission of missions) {
+      if (mission.goal.type !== 'reach-floor') continue
+      if (this.completedMissionIds.has(mission.id)) continue
+      const previous = this.missionProgress.get(mission.id) ?? 0
+      const updated = Math.max(previous, normalized)
+      this.missionProgress.set(mission.id, updated)
+      if (!this.isMissionUnlocked(mission.id)) continue
+      const target = Math.max(0, Math.floor(mission.goal.target ?? 0))
+      if (updated >= target) {
+        messages.push(...this.completeMission(mission))
+      }
+    }
+    return messages
+  }
+
+  recordEnemyDefeat(_enemy?: EnemyDef | null): string[] {
+    this.ensureMissionEntries()
+    const messages: string[] = []
+    for (const mission of missions) {
+      if (mission.goal.type !== 'defeat-enemies') continue
+      if (this.completedMissionIds.has(mission.id)) continue
+      const previous = this.missionProgress.get(mission.id) ?? 0
+      const updated = previous + 1
+      this.missionProgress.set(mission.id, updated)
+      if (!this.isMissionUnlocked(mission.id)) continue
+      const target = Math.max(0, Math.floor(mission.goal.target ?? 0))
+      if (updated >= target) {
+        messages.push(...this.completeMission(mission))
+      }
+    }
+    return messages
+  }
+
+  recordCoinsGained(amount: number): string[] {
+    this.ensureMissionEntries()
+    const gain = Math.max(0, Math.floor(amount ?? 0))
+    if (gain <= 0) return []
+    const messages: string[] = []
+    for (const mission of missions) {
+      if (mission.goal.type !== 'collect-coins') continue
+      if (this.completedMissionIds.has(mission.id)) continue
+      const previous = this.missionProgress.get(mission.id) ?? 0
+      const updated = previous + gain
+      this.missionProgress.set(mission.id, updated)
+      if (!this.isMissionUnlocked(mission.id)) continue
+      const target = Math.max(0, Math.floor(mission.goal.target ?? 0))
+      if (updated >= target) {
+        messages.push(...this.completeMission(mission))
+      }
+    }
+    return messages
+  }
+
+  recordItemCollected(item: ItemDef, quantity: number): string[] {
+    this.ensureMissionEntries()
+    const amount = Math.max(0, Math.floor(quantity ?? 0))
+    if (amount <= 0) return []
+    const messages: string[] = []
+    for (const mission of missions) {
+      if (mission.goal.type !== 'collect-items') continue
+      if (this.completedMissionIds.has(mission.id)) continue
+      if (mission.goal.itemId && mission.goal.itemId !== item.id) continue
+      const previous = this.missionProgress.get(mission.id) ?? 0
+      const updated = previous + amount
+      this.missionProgress.set(mission.id, updated)
+      if (!this.isMissionUnlocked(mission.id)) continue
+      const target = Math.max(0, Math.floor(mission.goal.target ?? 0))
+      if (updated >= target) {
+        messages.push(...this.completeMission(mission))
+      }
+    }
+    return messages
   }
 
   getStatusBonuses() {
@@ -207,7 +369,13 @@ export class PlayerState {
         id,
         Math.max(0, Math.floor(value))
       ]),
-      ageHalfMonths: Math.max(0, Math.floor(this.ageHalfMonths))
+      ageHalfMonths: Math.max(0, Math.floor(this.ageHalfMonths)),
+      missionProgress: Array.from(this.missionProgress.entries()).map(([id, value]) => [
+        id,
+        Math.max(0, Math.floor(value))
+      ]),
+      completedMissions: Array.from(this.completedMissionIds),
+      unlockedMissions: Array.from(this.unlockedMissionIds)
     }
   }
 
@@ -309,6 +477,52 @@ export class PlayerState {
 
     const savedAgeHalfMonths = Math.max(0, Math.floor(state.ageHalfMonths ?? DEFAULT_START_AGE_HALF_MONTHS))
     this.ageHalfMonths = Math.min(savedAgeHalfMonths, MAX_AGE_HALF_MONTHS)
+
+    this.missionProgress.clear()
+    const missionEntries = Array.isArray(state.missionProgress) ? state.missionProgress : []
+    for (const entry of missionEntries) {
+      if (!entry) continue
+      if (Array.isArray(entry)) {
+        const [id, value] = entry as [string, number]
+        if (typeof id !== 'string') continue
+        const numeric = Math.max(0, Math.floor(value ?? 0))
+        this.missionProgress.set(id, numeric)
+      } else if (typeof entry === 'object' && 'id' in entry) {
+        const id = (entry as any).id
+        const value = (entry as any).progress
+        if (typeof id === 'string' && Number.isFinite(value)) {
+          this.missionProgress.set(id, Math.max(0, Math.floor(value)))
+        }
+      }
+    }
+
+    this.completedMissionIds.clear()
+    const completedEntries = Array.isArray(state.completedMissions) ? state.completedMissions : []
+    for (const id of completedEntries) {
+      if (typeof id === 'string' && id.length) {
+        this.completedMissionIds.add(id)
+      }
+    }
+
+    this.ensureMissionEntries()
+
+    const unlockedEntries = Array.isArray(state.unlockedMissions) ? state.unlockedMissions : null
+    this.unlockedMissionIds.clear()
+    if (unlockedEntries && unlockedEntries.length) {
+      for (const id of unlockedEntries) {
+        if (typeof id !== 'string' || !id.length) continue
+        const def = getMissionDef(id)
+        if (!def) continue
+        this.unlockMission(def.id, { silent: true })
+      }
+    } else {
+      for (const mission of missions) {
+        if (mission.autoUnlock === false && !this.completedMissionIds.has(mission.id)) {
+          continue
+        }
+        this.unlockMission(mission.id, { silent: true })
+      }
+    }
   }
 
   private formatAgeFromHalfMonths(value: number): string {
@@ -351,7 +565,7 @@ export class PlayerState {
     return this.ageHalfMonths
   }
 
-  addItemToInventory(item: ItemDef, quantity = 1): string {
+  addItemToInventory(item: ItemDef, quantity = 1): { message: string; missionMessages: string[] } {
     const amount = Math.max(quantity, 1)
     if (item.stackable) {
       const existing = this.inventory.find(entry => entry.def.id === item.id)
@@ -366,7 +580,8 @@ export class PlayerState {
       }
     }
     const label = amount > 1 ? `${item.name} x${amount}` : item.name
-    return `取得 ${label}。`
+    const missionMessages = this.recordItemCollected(item, amount)
+    return { message: `取得 ${label}。`, missionMessages }
   }
 
   consumeInventorySlot(index: number): ItemDef | null {
@@ -555,6 +770,7 @@ export class PlayerState {
   applyEventOutcome(outcome: EventOutcome): ApplyOutcomeResult {
     let message = (outcome.message ?? '').trim()
     const lines: string[] = []
+    const missionMessages: string[] = []
     const append = (line: string) => {
       const trimmed = line.trim()
       if (trimmed.length) lines.push(trimmed)
@@ -592,8 +808,11 @@ export class PlayerState {
           continue
         }
         const quantity = Math.max(grant.quantity ?? 1, 1)
-        const gainMessage = this.addItemToInventory(def, quantity)
+        const { message: gainMessage, missionMessages: itemMissionMessages } = this.addItemToInventory(def, quantity)
         append(gainMessage)
+        if (itemMissionMessages.length) {
+          missionMessages.push(...itemMissionMessages)
+        }
       }
     }
 
@@ -602,6 +821,12 @@ export class PlayerState {
       const after = Math.max(before + outcome.coinDelta, 0)
       this.coins = after
       append(`金幣：${before} -> ${after}`)
+      if (outcome.coinDelta > 0) {
+        const coinMissionMessages = this.recordCoinsGained(outcome.coinDelta)
+        if (coinMissionMessages.length) {
+          missionMessages.push(...coinMissionMessages)
+        }
+      }
     }
 
     const statusLines = this.applyStatusGrants(outcome.grantStatuses)
@@ -613,7 +838,8 @@ export class PlayerState {
     const merged = [...(message.length ? [message] : []), ...lines]
     return {
       message: merged.join('\n'),
-      lines
+      lines,
+      missionMessages
     }
   }
 }

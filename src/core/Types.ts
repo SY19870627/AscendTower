@@ -155,4 +155,27 @@ export interface NpcDef {
   postMessage?: string
   outcome?: EventOutcome
   minFloor?: number
+  offeredMissionIds?: string[]
+}
+
+export type MissionGoal =
+  | { type: 'reach-floor'; target: number }
+  | { type: 'defeat-enemies'; target: number }
+  | { type: 'collect-coins'; target: number }
+  | { type: 'collect-items'; target: number; itemId?: string }
+
+export interface MissionDef {
+  id: string
+  title: string
+  description: string
+  goal: MissionGoal
+  reward?: EventOutcome
+  autoUnlock?: boolean
+}
+
+export interface MissionStatus {
+  def: MissionDef
+  progress: number
+  target: number
+  completed: boolean
 }

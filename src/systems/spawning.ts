@@ -78,10 +78,9 @@ export function pickupItem(scene: any, pos: Vec2) {
   const key = makePosKey(pos.x, pos.y)
   const item: ItemDef | undefined = scene.itemDrops.get(key)
   if (!item) return
-  const message: string = scene.addItemToInventory(item)
+  scene.addItemToInventory(item)
   scene.itemDrops.delete(key)
   scene.cameras.main.flash(120, 200, 140, 255)
-  scene.lastActionMessage = message
   scene.syncFloorLastAction?.()
 }
 
