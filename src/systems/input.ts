@@ -58,9 +58,15 @@ export function handleInput(scene: any, key: string) {
       scene.hasKey = true
       scene.grid.setTileUnderPlayer('floor')
       break
-    case 'door':
+    case 'door': {
+      const openedBranch = typeof scene.tryEnterDoorBranch === 'function' ? scene.tryEnterDoorBranch() : false
+      if (openedBranch) {
+        scene.transitionFloor?.('branch')
+        return
+      }
       scene.grid.setTileUnderPlayer('floor')
       break
+    }
     case 'weapon':
       pickupWeapon(scene, nextPos)
       scene.grid.setTileUnderPlayer('floor')
@@ -89,10 +95,13 @@ export function handleInput(scene: any, key: string) {
       }
       return
     case 'stairs_up':
-      scene.transitionFloor?.('up')
+      scene.transitionFloor?.(scene.isBranchFloor ? 'return' : 'up')
       return
     case 'stairs_down':
-      scene.transitionFloor?.('down')
+      scene.transitionFloor?.(scene.isBranchFloor ? 'return' : 'down')
+      return
+    case 'stairs_branch':
+      scene.transitionFloor?.('branch')
       return
     default:
       break

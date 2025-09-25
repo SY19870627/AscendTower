@@ -26,6 +26,7 @@ const SYMBOL_BY_TILE: Record<string, SymbolConfig> = {
   door: { frame: 2 },
   stairs_up: { frame: 3 },
   stairs_down: { frame: 3, flipY: true },
+  stairs_branch: { frame: 3, tint: 0x8fdcff },
   enemy: { frame: 4 },
   weapon: { frame: 5 },
   armor: { frame: 6 },
@@ -228,6 +229,8 @@ function describeTile(scene: any, tile: string, x: number, y: number): string | 
       return '樓梯：向上'
     case 'stairs_down':
       return '樓梯：向下'
+    case 'stairs_branch':
+      return '樓梯：支線'
     default:
       return null
   }
@@ -327,7 +330,8 @@ export function draw(scene: any) {
   const combatStats = getEffectiveCombatStats(scene)
   const totalItems = scene.inventory?.reduce((sum: number, stack: any) => sum + (stack.quantity ?? 0), 0) ?? 0
 
-  const statsLines = [`樓層 ${scene.floor}`]
+  const floorLabel = typeof scene.floorDisplayName === 'string' ? scene.floorDisplayName : `樓層 ${scene.floor}`
+  const statsLines = [floorLabel]
   if (typeof scene.ageDisplay === 'string' && scene.ageDisplay.length) {
     statsLines.push(`年齡 ${scene.ageDisplay}`)
   }
