@@ -622,7 +622,7 @@ export class GameScene extends Phaser.Scene {
     const includeDownstairs = this.isBranchFloor || this.floor > 1
     const forcedEnemies = buildForcedSpawnList(enemies, this.floor)
     const enemyCount = forcedEnemies.length || 5
-    this.grid = new Grid(14, 14, seed, { includeDownstairs, enemyCount })
+    this.grid = new Grid(11, 11, seed, { includeDownstairs, enemyCount })
     this.weaponDrops = new Map<string, WeaponDef>()
     this.armorDrops = new Map<string, ArmorDef>()
     this.eventNodes = new Map<string, EventDef>()

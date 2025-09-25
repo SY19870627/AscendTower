@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import { TILE } from '../content/tilesets'
 import { enemies } from '../content/enemies'
-import type { MissionStatus, SkillDef } from '../core/Types'
+import type { MissionStatus } from '../core/Types'
 import { getEffectiveCombatStats } from './combat'
 
 import { getWeaponAttributes, getWeaponAttributeChargeMax, isWeaponAttributeReady, normalizeWeaponAttributeCharges } from '../game/weapons/weaponAttributes'
@@ -11,7 +11,7 @@ import { getArmorAttributes, sumArmorAttributeBonuses } from '../game/armors/arm
 const TILE_TEXTURE_KEY = 'floor_wall'
 const SYMBOL_TEXTURE_KEY = 'symbol_tiles'
 
-const SHOW_TILE_BASES = false
+const SHOW_TILE_BASES = true
 
 type SymbolConfig = {
   frame: number
@@ -423,28 +423,6 @@ export function draw(scene: any) {
   })
   currentY += Math.max(statusText.split('\n').length, 1) * lineHeight + sectionGap
 
-  const knownSkills: SkillDef[] = scene.knownSkills ?? []
-  const skillLines = knownSkills.map((skill, idx) => {
-    const label = `${idx + 1}. ${skill.name}`
-    let cooldown = 0
-    if (typeof scene.getSkillCooldown === 'function') {
-      cooldown = scene.getSkillCooldown(skill.id) ?? 0
-    } else if (scene.skillCooldowns instanceof Map) {
-      cooldown = scene.skillCooldowns.get(skill.id) ?? 0
-    }
-    const state = cooldown > 0 ? `CD ${cooldown}` : '就緒'
-    return `${label} (${state})`
-  })
-  const skillHeader = '技能：'
-  const skillText = skillLines.length ? [skillHeader, ...skillLines].join('\n') : `${skillHeader} 無`
-  const skillColor = skillLines.some(line => line.includes('CD')) ? '#ffd27f' : '#cfe'
-  addText(scene, activeTextIds, 'skills', statsStartX, currentY, skillText, {
-    fontSize: '14px',
-    lineSpacing: 4,
-    color: skillColor
-  })
-  currentY += Math.max(skillText.split('\n').length, 1) * lineHeight + sectionGap
-
   const missionStatuses: MissionStatus[] = scene.missionStatuses ?? []
   const missionLines = missionStatuses.length
     ? missionStatuses.flatMap(status => {
@@ -503,19 +481,45 @@ export function draw(scene: any) {
   })
   currentY += Math.max(inventoryText.split('\n').length, 1) * lineHeight + sectionGap
 
-  const lastMessage = (scene.lastActionMessage ?? '').trim()
-  const lastActionText = ['最後行動：', lastMessage.length ? lastMessage : '無'].join('\n')
-  addText(scene, activeTextIds, 'last_action', statsStartX, currentY, lastActionText, {
-    fontSize: '14px',
-    lineSpacing: 4,
-    color: '#ffe9a6'
-  })
-
   const directionInfo = gatherDirectionInfo(scene)
   const rightPanelX = baseX + grid.w * tileSize + 24
   let directionY = scene.sidebarPadding ?? 16
   const boxWidth = 220
   const boxPadding = 8
+
+  const historyMargin = 16
+  const totalHeight = scene.scale?.height ?? (scene.game?.config?.height as number) ?? 0
+  const gridBottom = baseY + grid.h * tileSize
+  const historyWidth = grid.w * tileSize
+  let historyTop = gridBottom + historyMargin
+  let historyHeight = Math.max(totalHeight - historyTop - historyMargin, 0)
+  if (historyHeight < 120) {
+    historyHeight = 120
+    historyTop = Math.max(historyMargin, totalHeight - historyMargin - historyHeight)
+  }
+
+  if (historyWidth > 0 && historyHeight > 0) {
+    gfx.fillStyle(0x0e1d1d, 0.9).fillRect(baseX, historyTop, historyWidth, historyHeight)
+    gfx.lineStyle(1, 0x285656, 1).strokeRect(baseX, historyTop, historyWidth, historyHeight)
+
+    const lastMessage = (scene.lastActionMessage ?? '').trim()
+    const historyLines = ['歷史紀錄：', lastMessage.length ? lastMessage : '暫無紀錄']
+    const historyPadding = 14
+    const historyText = addText(
+      scene,
+      activeTextIds,
+      'history',
+      baseX + historyPadding,
+      historyTop + historyPadding,
+      historyLines.join('\n'),
+      {
+        fontSize: '14px',
+        lineSpacing: 4,
+        color: '#ffe9a6'
+      }
+    )
+    historyText.setWordWrapWidth?.(Math.max(historyWidth - historyPadding * 2, 120))
+  }
 
   for (const dir of DIRECTION_ORDER) {
     const entries = directionInfo[dir]
