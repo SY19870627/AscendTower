@@ -19,11 +19,18 @@ import type {
 import { PlayerState, type InventoryEntry, type ActiveStatus, type SerializedPlayerState } from '../game/player/PlayerState'
 import { handleInput } from '../systems/input'
 import { draw } from '../systems/render'
-import { spawnWeapons, spawnArmors, spawnItems, makePosKey } from '../systems/spawning'
-import { enemies } from '../content/enemies'
+import {
+  spawnWeapons,
+  spawnArmors,
+  spawnItems,
+  makePosKey,
+  buildForcedSpawnList,
+  isDefAvailableOnFloor
+} from '../systems/spawning'
+import { enemies, getEnemyDef } from '../content/enemies'
 import { events, getEventDef } from '../content/events'
 import { npcs, getNpcDef } from '../content/npcs'
-import { getShopsForFloor, getShopDef } from '../content/shops'
+import { shops, getShopsForFloor, getShopDef } from '../content/shops'
 import { items, getItemDef } from '../content/items'
 import { weapons, getWeaponDef } from '../content/weapons'
 import { armors, getArmorDef } from '../content/armors'
@@ -47,13 +54,14 @@ type FloorState = {
   npcNodes: Map<string, NpcDef>
   shopNodes: Map<string, ShopDef>
   itemDrops: Map<string, ItemDef>
+  enemyNodes: Map<string, EnemyDef>
   lastActionMessage: string
   branchEntrances: Map<string, BranchEntranceState>
   branchReturnPos: Vec2 | null
 }
 
 export const SAVE_KEY = 'ascend-tower-save-v1'
-const SAVE_VERSION = 2
+const SAVE_VERSION = 3
 
 type SerializedGridState = {
   w?: number
@@ -80,6 +88,7 @@ type SerializedFloorState = {
   eventNodes?: Array<[string, string]>
   npcNodes?: Array<[string, string]>
   shopNodes?: Array<[string, string]>
+  enemyNodes?: Array<[string, string]>
   lastActionMessage?: string
   branchEntrances?: Array<[
     string,
@@ -135,6 +144,7 @@ export class GameScene extends Phaser.Scene {
   npcNodes = new Map<string, NpcDef>()
   shopNodes = new Map<string, ShopDef>()
   itemDrops = new Map<string, ItemDef>()
+  enemyNodes = new Map<string, EnemyDef>()
   lastActionMessage = ''
   battleOverlay!: BattleOverlay
   eventOverlay!: EventOverlay
@@ -599,6 +609,7 @@ export class GameScene extends Phaser.Scene {
       this.npcNodes = cached.npcNodes
       this.shopNodes = cached.shopNodes
       this.itemDrops = cached.itemDrops
+      this.enemyNodes = cached.enemyNodes
       this.lastActionMessage = cached.lastActionMessage
       this.branchEntrances = cached.branchEntrances
       this.branchReturnPos = cached.branchReturnPos
@@ -609,13 +620,16 @@ export class GameScene extends Phaser.Scene {
 
     const seed = (Date.now() ^ (this.floor << 8)) & 0xffff
     const includeDownstairs = this.isBranchFloor || this.floor > 1
-    this.grid = new Grid(14, 14, seed, { includeDownstairs })
+    const forcedEnemies = buildForcedSpawnList(enemies, this.floor)
+    const enemyCount = forcedEnemies.length || 5
+    this.grid = new Grid(14, 14, seed, { includeDownstairs, enemyCount })
     this.weaponDrops = new Map<string, WeaponDef>()
     this.armorDrops = new Map<string, ArmorDef>()
     this.eventNodes = new Map<string, EventDef>()
     this.npcNodes = new Map<string, NpcDef>()
     this.shopNodes = new Map<string, ShopDef>()
     this.itemDrops = new Map<string, ItemDef>()
+    this.enemyNodes = new Map<string, EnemyDef>()
     this.lastActionMessage = ''
     this.branchEntrances = new Map<string, BranchEntranceState>()
     this.branchReturnPos = this.isBranchFloor
@@ -623,6 +637,15 @@ export class GameScene extends Phaser.Scene {
         ? { x: this.grid.stairsDownPos.x, y: this.grid.stairsDownPos.y }
         : { x: this.grid.playerPos.x, y: this.grid.playerPos.y }
       : null
+
+    if (forcedEnemies.length) {
+      const pool = [...forcedEnemies]
+      for (const pos of this.grid.enemyPos) {
+        if (!pool.length) break
+        const def = pool.splice(this.grid.rng.int(0, pool.length - 1), 1)[0]
+        this.enemyNodes.set(makePosKey(pos.x, pos.y), def)
+      }
+    }
 
     spawnWeapons(this)
     spawnArmors(this)
@@ -641,6 +664,7 @@ export class GameScene extends Phaser.Scene {
       eventNodes: this.eventNodes,
       npcNodes: this.npcNodes,
       shopNodes: this.shopNodes,
+      enemyNodes: this.enemyNodes,
       itemDrops: this.itemDrops,
       lastActionMessage: this.lastActionMessage,
       branchEntrances: this.branchEntrances,
@@ -911,6 +935,7 @@ export class GameScene extends Phaser.Scene {
       eventNodes: Array.from(state.eventNodes.entries()).map(([pos, event]) => [pos, event.id]),
       npcNodes: Array.from(state.npcNodes.entries()).map(([pos, npc]) => [pos, npc.id]),
       shopNodes: Array.from(state.shopNodes.entries()).map(([pos, shop]) => [pos, shop.id]),
+      enemyNodes: Array.from(state.enemyNodes.entries()).map(([pos, enemy]) => [pos, enemy.id]),
       lastActionMessage: state.lastActionMessage,
       branchEntrances: Array.from(state.branchEntrances.entries()).map(([posKey, info]) => [
         posKey,
@@ -963,6 +988,12 @@ export class GameScene extends Phaser.Scene {
       if (def) shopNodes.set(pos, def)
     }
 
+    const enemyNodes = new Map<string, EnemyDef>()
+    for (const [pos, id] of data.enemyNodes ?? []) {
+      const def = getEnemyDef(id)
+      if (def) enemyNodes.set(pos, def)
+    }
+
     const branchEntrances = new Map<string, BranchEntranceState>()
     for (const [posKey, info] of data.branchEntrances ?? []) {
       if (!info?.pos) continue
@@ -981,6 +1012,7 @@ export class GameScene extends Phaser.Scene {
       eventNodes,
       npcNodes,
       shopNodes,
+      enemyNodes,
       itemDrops,
       lastActionMessage: data.lastActionMessage ?? '',
       branchEntrances,
@@ -1183,6 +1215,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnShops() {
+    const forced = buildForcedSpawnList(shops, this.floor)
+    if (forced.length) {
+      const pool = [...forced]
+      while (pool.length) {
+        const def = pool.splice(this.grid.rng.int(0, pool.length - 1), 1)[0]
+        const pos = this.grid.place('shop')
+        this.shopNodes.set(makePosKey(pos.x, pos.y), def)
+      }
+      return
+    }
+
     const available = getShopsForFloor(this.floor)
     if (!available.length) return
 
@@ -1194,6 +1237,7 @@ export class GameScene extends Phaser.Scene {
       const def = pool.splice(pick, 1)[0]
       const pos = this.grid.place('shop')
       this.shopNodes.set(makePosKey(pos.x, pos.y), def)
+      if (!pool.length) pool.push(...available)
     }
   }
 
@@ -1286,7 +1330,18 @@ export class GameScene extends Phaser.Scene {
 
 
   private spawnNpcs() {
-    const available = npcs.filter(npc => (npc.minFloor ?? 1) <= this.floor)
+    const forced = buildForcedSpawnList(npcs, this.floor)
+    if (forced.length) {
+      const pool = [...forced]
+      while (pool.length) {
+        const def = pool.splice(this.grid.rng.int(0, pool.length - 1), 1)[0]
+        const pos = this.grid.place('npc')
+        this.npcNodes.set(makePosKey(pos.x, pos.y), def)
+      }
+      return
+    }
+
+    const available = npcs.filter(npc => isDefAvailableOnFloor(npc, this.floor))
     if (!available.length) return
     const pool = [...available]
     const baseCount = Math.max(1, Math.floor(this.floor / 4) + 1)
@@ -1524,7 +1579,13 @@ export class GameScene extends Phaser.Scene {
   getEnemyAt(pos: Vec2) {
     const exists = this.grid.enemyPos.some(p => p.x === pos.x && p.y === pos.y)
     if (!exists) return null
-    const pool = enemies.filter(enemy => (enemy.minFloor ?? 1) <= this.floor)
+    const key = makePosKey(pos.x, pos.y)
+    const forced = this.enemyNodes.get(key)
+    if (forced) {
+      return forced
+    }
+
+    const pool = enemies.filter(enemy => isDefAvailableOnFloor(enemy, this.floor))
     const selection = pool.length ? pool : enemies
     const index = this.grid.rng.int(0, selection.length - 1)
     return selection[index]
@@ -1555,6 +1616,7 @@ export class GameScene extends Phaser.Scene {
 
     this.grid.movePlayer(enemyPos)
     this.grid.enemyPos = this.grid.enemyPos.filter(p => p.x !== enemyPos.x || p.y !== enemyPos.y)
+    this.enemyNodes.delete(makePosKey(enemyPos.x, enemyPos.y))
     this.grid.setTileUnderPlayer('floor')
 
     const rewardMessages: string[] = []

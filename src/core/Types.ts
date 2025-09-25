@@ -16,13 +16,22 @@ export type Tile =
   | 'npc'
   | 'item'
   | 'ending'
-export interface EnemyDef {
+export interface SpawnRule {
+  floors: number[]
+  count: number
+}
+
+interface SpawnableDef {
+  minFloor?: number
+  spawnRules?: SpawnRule[]
+}
+
+export interface EnemyDef extends SpawnableDef {
   id: string
   name: string
   base: { hp: number; atk: number; def: number }
   coinDrop?: { min: number; max: number }
   mods?: string[]
-  minFloor?: number
 }
 export type WeaponAttributeId = 'armor-break' | 'fury-strike' | 'vampiric-edge' | 'storm-surge'
 export type WeaponAttributeChargeMap = Partial<Record<WeaponAttributeId, number>>
@@ -49,7 +58,13 @@ export interface WeaponAttributeDef {
   healAmount?: number
 }
 
-export interface WeaponDef { id: string; name: string; atk: number; desc?: string; minFloor?: number; attributeIds?: WeaponAttributeId[] }
+export interface WeaponDef extends SpawnableDef {
+  id: string
+  name: string
+  atk: number
+  desc?: string
+  attributeIds?: WeaponAttributeId[]
+}
 export interface ArmorAttributeDef {
   id: ArmorAttributeId
   name: string
@@ -57,12 +72,11 @@ export interface ArmorAttributeDef {
   defBonus?: number
 }
 
-export interface ArmorDef {
+export interface ArmorDef extends SpawnableDef {
   id: string
   name: string
   def: number
   desc?: string
-  minFloor?: number
   attributeIds?: ArmorAttributeId[]
 }
 export interface PlayerStats { hp: number; mp: number }
@@ -131,11 +145,10 @@ export interface ShopOffer {
   quantity?: number
 }
 
-export interface ShopDef {
+export interface ShopDef extends SpawnableDef {
   id: string
   title: string
   description: string
-  minFloor?: number
   offers: ShopOffer[]
 }
 
@@ -148,13 +161,12 @@ export interface EventDef {
   options: EventOption[]
 }
 
-export interface NpcDef {
+export interface NpcDef extends SpawnableDef {
   id: string
   name: string
   lines: string[]
   postMessage?: string
   outcome?: EventOutcome
-  minFloor?: number
   offeredMissionIds?: string[]
 }
 
