@@ -13,7 +13,7 @@ export class Grid {
   rng: RNG
   keyPos!: Vec2
   doorPos!: Vec2
-  stairsUpPos!: Vec2
+  stairsUpPos: Vec2 | null = null
   playerPos!: Vec2
   enemyPos: Vec2[] = []
   tileUnderPlayer: Tile = 'floor'
@@ -134,16 +134,16 @@ export class Grid {
       }
     }
 
-    const startPos = this.place('player')
+    const centerX = Math.min(Math.max(Math.floor(this.w / 2), this.wallThickness), this.w - this.wallThickness - 1)
+    const centerY = Math.min(Math.max(Math.floor(this.h / 2), this.wallThickness), this.h - this.wallThickness - 1)
+    const startPos = { x: centerX, y: centerY }
     this.setPlayerPosition(startPos, 'floor')
 
     this.keyPos = this.place('key')
     this.doorPos = this.place('door')
-    this.stairsUpPos = this.place('stairs_up')
 
     this.carvePath(this.playerPos, this.keyPos)
     this.carvePath(this.keyPos, this.doorPos)
-    this.carvePath(this.doorPos, this.stairsUpPos)
   }
 
   private carvePath(a: Vec2, b: Vec2) {
