@@ -327,17 +327,8 @@ export function draw(scene: any) {
   const combatStats = getEffectiveCombatStats(scene)
   const totalItems = scene.inventory?.reduce((sum: number, stack: any) => sum + (stack.quantity ?? 0), 0) ?? 0
 
-  const statsLines = [`樓層 ${scene.floor}`]
-  if (typeof scene.ageDisplay === 'string' && scene.ageDisplay.length) {
-    statsLines.push(`年齡 ${scene.ageDisplay}`)
-  }
-  if (typeof scene.lifespanLimitDisplay === 'string' && scene.lifespanLimitDisplay.length) {
-    statsLines.push(`壽命上限 ${scene.lifespanLimitDisplay}`)
-  }
-  if (typeof scene.lifespanRemainingDisplay === 'string' && scene.lifespanRemainingDisplay.length) {
-    statsLines.push(`剩餘壽命 ${scene.lifespanRemainingDisplay}`)
-  }
-  statsLines.push(
+  const statsLines = [
+    `樓層 ${scene.floor}`,
     `生命 ${scene.playerStats?.hp ?? 0}`,
     `攻擊 ${combatStats.atk}`,
     `防禦 ${combatStats.def}`,
@@ -346,7 +337,7 @@ export function draw(scene: any) {
     `武器 ${scene.playerWeapon ? scene.playerWeapon.name : '無'}`,
     `防具 ${scene.playerArmor ? scene.playerArmor.name : '無'}`,
     `道具 ${totalItems}`
-  )
+  ]
 
   if (scene.playerWeapon) {
     const weapon = scene.playerWeapon

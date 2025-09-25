@@ -16,7 +16,6 @@ export function handleInput(scene: any, key: string) {
   if (scene.eventOverlay?.isActive) return
   if (scene.shopOverlay?.isActive) return
   if (scene.libraryOverlay?.isActive) return
-  if (scene.isLifespanEndingActive) return
   if (key === "l" || key === "L") {
     if (typeof scene.toggleLibrary === "function") {
       scene.toggleLibrary()

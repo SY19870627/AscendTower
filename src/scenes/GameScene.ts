@@ -136,13 +136,7 @@ export class GameScene extends Phaser.Scene {
     '“若見此字，別怕黑。” ',
     '然後你把符紙輕輕一按，世界再次刷新。'
   ]
-  private readonly lifespanEndingLines = [
-    '當你再度停下腳步，才察覺丹田真火已成餘燼。',
-    '漫長攀行換得滿身塵土，卻換不回流逝的歲月。',
-    '壽命已盡，求仙之路在此畫下句點。'
-  ]
   private endingTriggered = false
-  private lifespanEndingTriggered = false
   private readonly floorStates = new Map<number, FloorState>()
   private pendingEntry: 'up' | 'down' | null = null
   private pendingStartMode: 'load' | null = null
@@ -224,22 +218,6 @@ export class GameScene extends Phaser.Scene {
     return this.playerState.skillCooldowns
   }
 
-  get ageDisplay(): string {
-    return this.playerState.getAgeDisplay()
-  }
-
-  get lifespanLimitDisplay(): string {
-    return this.playerState.getAgeLimitDisplay()
-  }
-
-  get lifespanRemainingDisplay(): string {
-    return this.playerState.getRemainingAgeDisplay()
-  }
-
-  get isLifespanEndingActive(): boolean {
-    return this.lifespanEndingTriggered
-  }
-
   private appendActionMessages(lines: string[]) {
     const additions = lines.map(line => line.trim()).filter(line => line.length > 0)
     if (!additions.length) return
@@ -262,7 +240,6 @@ export class GameScene extends Phaser.Scene {
     this.pendingEntry = data?.entry ?? null
     this.pendingStartMode = data?.startMode === 'load' ? 'load' : null
     this.endingTriggered = false
-    this.lifespanEndingTriggered = false
   }
 
   resetPlayerState() {
@@ -278,7 +255,6 @@ export class GameScene extends Phaser.Scene {
     this.pendingEntry = null
     this.pendingStartMode = null
     this.endingTriggered = false
-    this.lifespanEndingTriggered = false
     this.syncFloorLastAction()
   }
 
@@ -318,10 +294,6 @@ export class GameScene extends Phaser.Scene {
     this.pendingStartMode = null
     if (shouldAutoLoad) {
       this.loadGame({ silent: true })
-    }
-
-    if (this.playerState.hasReachedAgeLimit()) {
-      this.triggerLifespanEnding()
     }
   }
 
@@ -893,9 +865,6 @@ export class GameScene extends Phaser.Scene {
         this.syncFloorLastAction()
       }
       draw(this)
-      if (this.playerState.hasReachedAgeLimit()) {
-        this.triggerLifespanEnding()
-      }
       return true
     } catch (error) {
       console.error('[AscendTower] 讀檔失敗', error)
@@ -1021,10 +990,6 @@ export class GameScene extends Phaser.Scene {
     const { npc, pos } = payload
     if (npc.id === 'ending') {
       this.handleEndingCompletion()
-      return
-    }
-    if (npc.id === 'lifespan-ending') {
-      this.handleLifespanEndingCompletion()
       return
     }
 
@@ -1312,7 +1277,7 @@ ${details}`, coins: this.coins }
     draw(this)
   }
 
-  advanceTurn(reason: 'move' | 'item' | 'shop' | 'skill' = 'move'): boolean {
+  advanceTurn(_reason: 'move' | 'item' | 'shop' | 'skill' = 'move'): boolean {
     const statusTick = this.playerState.tickStatuses()
     const skillTick = this.playerState.tickSkillCooldowns()
     const messages = [...statusTick.messages, ...skillTick]
@@ -1320,13 +1285,6 @@ ${details}`, coins: this.coins }
     if (statusTick.defeated) {
       this.handlePlayerDefeat()
       return false
-    }
-    if (reason === 'move') {
-      const reachedLimit = this.playerState.advanceAgeHalfMonth()
-      if (reachedLimit) {
-        this.triggerLifespanEnding()
-        return false
-      }
     }
     return true
   }
@@ -1346,33 +1304,6 @@ ${details}`, coins: this.coins }
     this.resetPlayerState()
     this.time.delayedCall(200, () => {
       this.scene.restart({ floor: 1, reset: true })
-    })
-  }
-
-  private triggerLifespanEnding() {
-    if (this.lifespanEndingTriggered) return
-    this.lifespanEndingTriggered = true
-    this.closeAllOverlays()
-    const lines = [
-      `年齡已達 ${this.lifespanLimitDisplay}，壽元枯竭。`,
-      '求仙之路終止於此。'
-    ]
-    this.appendActionMessages(lines)
-    this.syncFloorLastAction()
-    draw(this)
-
-    const finaleNpc: NpcDef = {
-      id: 'lifespan-ending',
-      name: '殘燈僧',
-      lines: [...this.lifespanEndingLines]
-    }
-
-    this.dialogueOverlay.open({ npc: finaleNpc, pos: this.grid.playerPos })
-  }
-
-  private handleLifespanEndingCompletion() {
-    this.time.delayedCall(320, () => {
-      this.scene.start('TitleScene')
     })
   }
 }
