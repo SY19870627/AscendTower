@@ -36,6 +36,7 @@ export type SerializedPlayerState = {
   activeStatuses?: SerializedStatusEntry[]
   knownSkills?: string[]
   skillCooldowns?: [string, number][]
+  ageHalfMonths?: number
 }
 
 
@@ -57,6 +58,11 @@ const DEFAULT_COINS = 120
 const DEFAULT_SKILLS = ['battle-shout']
 const DEFAULT_WEAPON_ID = 'bare-hands'
 const DEFAULT_ARMOR_ID = 'cloth-robe'
+const HALF_MONTHS_PER_YEAR = 24
+const DEFAULT_START_AGE_YEARS = 20
+const MAX_AGE_YEARS = 70
+const DEFAULT_START_AGE_HALF_MONTHS = DEFAULT_START_AGE_YEARS * HALF_MONTHS_PER_YEAR
+const MAX_AGE_HALF_MONTHS = MAX_AGE_YEARS * HALF_MONTHS_PER_YEAR
 
 export class PlayerState {
   hasKey = false
@@ -71,6 +77,7 @@ export class PlayerState {
   activeStatuses: ActiveStatus[] = []
   knownSkills: SkillDef[] = []
   skillCooldowns = new Map<string, number>()
+  private ageHalfMonths = DEFAULT_START_AGE_HALF_MONTHS
 
   private readonly defaults: Required<PlayerStateConfig>
 
@@ -141,6 +148,7 @@ export class PlayerState {
     this.activeStatuses = []
     this.knownSkills = []
     this.skillCooldowns.clear()
+    this.ageHalfMonths = DEFAULT_START_AGE_HALF_MONTHS
     this.equipDefaultGear()
     this.ensureDefaultSkills({ silent: true })
   }
@@ -198,7 +206,8 @@ export class PlayerState {
       skillCooldowns: Array.from(this.skillCooldowns.entries()).map(([id, value]) => [
         id,
         Math.max(0, Math.floor(value))
-      ])
+      ]),
+      ageHalfMonths: Math.max(0, Math.floor(this.ageHalfMonths))
     }
   }
 
@@ -297,6 +306,49 @@ export class PlayerState {
         this.skillCooldowns.set(skill.id, 0)
       }
     }
+
+    const savedAgeHalfMonths = Math.max(0, Math.floor(state.ageHalfMonths ?? DEFAULT_START_AGE_HALF_MONTHS))
+    this.ageHalfMonths = Math.min(savedAgeHalfMonths, MAX_AGE_HALF_MONTHS)
+  }
+
+  private formatAgeFromHalfMonths(value: number): string {
+    const clamped = Math.max(0, Math.floor(value))
+    const totalMonths = Math.floor(clamped / 2)
+    const hasHalf = clamped % 2 === 1
+    const years = Math.floor(totalMonths / 12)
+    const months = totalMonths % 12
+    const monthText = hasHalf ? `${months + 0.5}` : `${months}`
+    return `${years}歲${monthText}月`
+  }
+
+  advanceAgeHalfMonth(): boolean {
+    if (this.ageHalfMonths >= MAX_AGE_HALF_MONTHS) {
+      this.ageHalfMonths = MAX_AGE_HALF_MONTHS
+      return true
+    }
+    this.ageHalfMonths = Math.min(this.ageHalfMonths + 1, MAX_AGE_HALF_MONTHS)
+    return this.ageHalfMonths >= MAX_AGE_HALF_MONTHS
+  }
+
+  hasReachedAgeLimit(): boolean {
+    return this.ageHalfMonths >= MAX_AGE_HALF_MONTHS
+  }
+
+  getAgeDisplay(): string {
+    return this.formatAgeFromHalfMonths(this.ageHalfMonths)
+  }
+
+  getAgeLimitDisplay(): string {
+    return this.formatAgeFromHalfMonths(MAX_AGE_HALF_MONTHS)
+  }
+
+  getRemainingAgeDisplay(): string {
+    const remaining = Math.max(MAX_AGE_HALF_MONTHS - this.ageHalfMonths, 0)
+    return this.formatAgeFromHalfMonths(remaining)
+  }
+
+  getAgeHalfMonths(): number {
+    return this.ageHalfMonths
   }
 
   addItemToInventory(item: ItemDef, quantity = 1): string {
