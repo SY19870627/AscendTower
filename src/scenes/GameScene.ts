@@ -60,6 +60,8 @@ type FloorState = {
   lastActionMessage: string
   branchEntrances: Map<string, BranchEntranceState>
   branchReturnPos: Vec2 | null
+  pendingStairsUp?: boolean
+  pendingEnding?: boolean
 }
 
 export const SAVE_KEY = 'ascend-tower-save-v1'
@@ -89,7 +91,7 @@ type SerializedFloorState = {
   eventNodes?: Array<[string, string]>
   npcNodes?: Array<[string, string]>
   shopNodes?: Array<[string, string]>
-  enemyNodes?: Array<[string, string]>
+  enemyNodes?: Array<[string, string | EnemyDef]>
   lastActionMessage?: string
   branchEntrances?: Array<[
     string,
@@ -99,6 +101,8 @@ type SerializedFloorState = {
     }
   ]>
   branchReturnPos?: Vec2 | null
+  pendingStairsUp?: boolean
+  pendingEnding?: boolean
 }
 
 type SerializedGameState = {
@@ -183,6 +187,7 @@ export class GameScene extends Phaser.Scene {
   private pendingStartMode: 'load' | null = null
   private readonly playerState = new PlayerState()
   private activeFloorMission: MissionDef | null = null
+  private pendingBranchReminder = false
 
   private makeFloorKey(floor: number, branchPath: number[]): string {
     if (!branchPath.length) return `${Math.max(1, Math.floor(floor))}`
@@ -357,6 +362,8 @@ export class GameScene extends Phaser.Scene {
       branchPath?: number[]
       returnFromBranchKey?: string | null
       startMode?: 'load'
+      branchReminder?: boolean
+      clearMissions?: boolean
     }
   ) {
     if (data?.reset) this.resetPlayerState()
@@ -364,6 +371,10 @@ export class GameScene extends Phaser.Scene {
     this.pendingEntry = data?.entry ?? null
     this.pendingReturnFromBranchKey = data?.returnFromBranchKey ?? null
     this.pendingStartMode = data?.startMode === 'load' ? 'load' : null
+    this.pendingBranchReminder = !!data?.branchReminder
+    if (data?.clearMissions) {
+      this.playerState.resetFloorClearingMissions()
+    }
     this.endingTriggered = false
     this.lifespanEndingTriggered = false
 
@@ -391,6 +402,7 @@ export class GameScene extends Phaser.Scene {
     this.pendingEntry = null
     this.pendingReturnFromBranchKey = null
     this.pendingStartMode = null
+    this.pendingBranchReminder = false
     this.endingTriggered = false
     this.lifespanEndingTriggered = false
     this.activeFloorMission = null
@@ -430,6 +442,13 @@ export class GameScene extends Phaser.Scene {
     const floorMissionMessages = this.playerState.recordFloorReached(this.floor)
     this.handleMissionMessages(floorMissionMessages)
     draw(this)
+
+    if (this.pendingBranchReminder && this.isBranchFloor) {
+      this.appendActionMessages(['支線提醒：擊敗支線中的菁英敵人後才能返回原本樓層。'])
+      this.syncFloorLastAction()
+      draw(this)
+    }
+    this.pendingBranchReminder = false
 
     this.setupJumpButton()
 
@@ -639,15 +658,103 @@ export class GameScene extends Phaser.Scene {
     return pos
   }
 
-  private refreshFloorMission(options?: { silentUnlock?: boolean }) {
-    if (this.isBranchFloor) {
-      this.activeFloorMission = null
-      return
+  private findTilePosInGrid(grid: Grid | null, tile: Tile): Vec2 | null {
+    if (!grid?.tiles) return null
+    for (let y = 0; y < grid.tiles.length; y++) {
+      const row = grid.tiles[y]
+      for (let x = 0; x < row.length; x++) {
+        if (row[x] === tile) {
+          return { x, y }
+        }
+      }
+    }
+    return null
+  }
+
+  private spawnCompletionTileOnGrid(grid: Grid | null, tile: 'stairs_up' | 'ending'): Vec2 | null {
+    if (!grid) return null
+    const pos = grid.place(tile)
+    if (tile === 'stairs_up') {
+      grid.stairsUpPos = { x: pos.x, y: pos.y }
+    }
+    grid.connectTiles(grid.playerPos, pos)
+    return pos
+  }
+
+  private applyPendingMissionRewards(state: FloorState) {
+    if (!state.pendingEnding && !state.pendingStairsUp) return
+    const grid = state.grid
+
+    if (state.pendingEnding) {
+      const stairsPos = this.findTilePosInGrid(grid, 'stairs_up')
+      if (stairsPos) {
+        grid.tiles[stairsPos.y][stairsPos.x] = 'floor'
+        if (grid.hasActivePlayer() && grid.playerPos.x === stairsPos.x && grid.playerPos.y === stairsPos.y) {
+          grid.setTileUnderPlayer('floor')
+        }
+        grid.stairsUpPos = null
+      }
+      const existingEnding = this.findTilePosInGrid(grid, 'ending')
+      if (!existingEnding) {
+        this.spawnCompletionTileOnGrid(grid, 'ending')
+      }
+      state.pendingEnding = false
     }
 
+    if (state.pendingStairsUp) {
+      const existing = this.findTilePosInGrid(grid, 'stairs_up')
+      if (!existing) {
+        const pos = this.spawnCompletionTileOnGrid(grid, 'stairs_up')
+        if (pos) {
+          grid.stairsUpPos = { x: pos.x, y: pos.y }
+        }
+      } else {
+        grid.stairsUpPos = { x: existing.x, y: existing.y }
+      }
+      state.pendingStairsUp = false
+    }
+  }
+
+  private createEliteEnemyForFloor(): EnemyDef | null {
+    const pool = enemies.filter(enemy => isDefAvailableOnFloor(enemy, this.floor))
+    const base = pool.length ? pool[pool.length - 1] : enemies[enemies.length - 1]
+    if (!base) return null
+    const hp = Math.max(1, Math.floor(base.base.hp * 1.6))
+    const atk = Math.max(1, Math.floor(base.base.atk * 1.35))
+    const def = Math.max(0, Math.floor(base.base.def * 1.3))
+    const coinDrop = base.coinDrop
+      ? {
+          min: Math.max(0, Math.floor(base.coinDrop.min + 4)),
+          max: Math.max(0, Math.floor(base.coinDrop.max + 6))
+        }
+      : undefined
+    return {
+      ...base,
+      id: `${base.id}-elite`,
+      name: `${base.name}（菁英）`,
+      base: { hp, atk, def },
+      coinDrop,
+      mods: [...(base.mods ?? []), 'elite']
+    }
+  }
+
+  private spawnBranchEliteEnemy() {
+    if (!this.isBranchFloor) return
+    const elite = this.createEliteEnemyForFloor()
+    if (!elite) return
+    const pos = this.grid.place('enemy')
+    this.grid.enemyPos.push({ x: pos.x, y: pos.y })
+    this.enemyNodes.set(makePosKey(pos.x, pos.y), elite)
+  }
+
+  private refreshFloorMission(options?: { silentUnlock?: boolean }) {
     const mission = getMissionForFloor(this.floor) ?? null
     this.activeFloorMission = mission
     if (!mission) {
+      return
+    }
+
+    if (this.isBranchFloor) {
       return
     }
 
@@ -663,10 +770,23 @@ export class GameScene extends Phaser.Scene {
   }
 
   private checkFloorMissionCompletion() {
-    if (this.isBranchFloor) return
     const mission = this.activeFloorMission
     if (!mission) return
     if (!this.playerState.isMissionCompleted(mission.id)) return
+
+    if (this.isBranchFloor) {
+      const baseKey = this.makeFloorKey(this.floor, [])
+      const state = this.floorStates.get(baseKey)
+      if (state) {
+        if (this.floor === 10) {
+          state.pendingEnding = true
+          state.pendingStairsUp = false
+        } else {
+          state.pendingStairsUp = true
+        }
+      }
+      return
+    }
 
     if (this.floor === 10) {
       const leftoverStairs = this.findStairsUpPos()
@@ -699,6 +819,7 @@ export class GameScene extends Phaser.Scene {
     const key = this.getCurrentFloorKey()
     const cached = this.floorStates.get(key)
     if (cached) {
+      this.applyPendingMissionRewards(cached)
       this.grid = cached.grid
       this.weaponDrops = cached.weaponDrops
       this.armorDrops = cached.armorDrops
@@ -710,6 +831,8 @@ export class GameScene extends Phaser.Scene {
       this.lastActionMessage = cached.lastActionMessage
       this.branchEntrances = cached.branchEntrances
       this.branchReturnPos = cached.branchReturnPos
+      cached.pendingEnding = false
+      cached.pendingStairsUp = false
       this.syncFloorLastAction()
       this.findStairsUpPos()
       this.positionPlayerForEntry()
@@ -750,6 +873,9 @@ export class GameScene extends Phaser.Scene {
     this.spawnEvents()
     this.spawnNpcs()
     this.spawnBranchEntrances()
+    if (this.isBranchFloor) {
+      this.spawnBranchEliteEnemy()
+    }
     if (!this.knownSkills.length) this.learnSkill('battle-shout', { silent: true })
 
     const state: FloorState = {
@@ -763,7 +889,9 @@ export class GameScene extends Phaser.Scene {
       itemDrops: this.itemDrops,
       lastActionMessage: this.lastActionMessage,
       branchEntrances: this.branchEntrances,
-      branchReturnPos: this.branchReturnPos
+      branchReturnPos: this.branchReturnPos,
+      pendingEnding: false,
+      pendingStairsUp: false
     }
     this.floorStates.set(key, state)
     this.positionPlayerForEntry()
@@ -865,7 +993,7 @@ export class GameScene extends Phaser.Scene {
     this.grid.detachPlayer()
 
     const entry = direction === 'up' ? 'down' : 'up'
-    this.scene.restart({ floor: clamped, entry, branchPath: [] })
+    this.scene.restart({ floor: clamped, entry, branchPath: [], clearMissions: true })
   }
 
   private startEndingSequence(pos: Vec2) {
@@ -934,7 +1062,7 @@ export class GameScene extends Phaser.Scene {
 
       this.grid.setTileUnderPlayer('stairs_branch')
       this.grid.detachPlayer()
-      this.scene.restart({ floor: this.floor, entry: 'branch', branchPath })
+      this.scene.restart({ floor: this.floor, entry: 'branch', branchPath, branchReminder: true })
       return
     }
 
@@ -948,7 +1076,13 @@ export class GameScene extends Phaser.Scene {
       this.grid.detachPlayer()
 
       const parentPath = this.branchPath.slice(0, -1)
-      this.scene.restart({ floor: this.floor, entry: 'return', branchPath: parentPath, returnFromBranchKey: branchKey })
+      this.scene.restart({
+        floor: this.floor,
+        entry: 'return',
+        branchPath: parentPath,
+        returnFromBranchKey: branchKey,
+        branchReminder: false
+      })
       return
     }
 
@@ -963,7 +1097,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const entry = direction === 'up' ? 'down' : 'up'
-    this.scene.restart({ floor: targetFloor, entry, branchPath: [] })
+    this.scene.restart({ floor: targetFloor, entry, branchPath: [], clearMissions: true })
   }
 
   syncFloorLastAction() {
@@ -1039,7 +1173,22 @@ export class GameScene extends Phaser.Scene {
       eventNodes: Array.from(state.eventNodes.entries()).map(([pos, event]) => [pos, event.id]),
       npcNodes: Array.from(state.npcNodes.entries()).map(([pos, npc]) => [pos, npc.id]),
       shopNodes: Array.from(state.shopNodes.entries()).map(([pos, shop]) => [pos, shop.id]),
-      enemyNodes: Array.from(state.enemyNodes.entries()).map(([pos, enemy]) => [pos, enemy.id]),
+      enemyNodes: Array.from(state.enemyNodes.entries()).map(([pos, enemy]) => {
+        if (!enemy) return [pos, '']
+        const needsFull = enemy.mods?.includes('elite') || !getEnemyDef(enemy.id)
+        if (needsFull) {
+          return [
+            pos,
+            {
+              ...enemy,
+              base: { ...enemy.base },
+              coinDrop: enemy.coinDrop ? { ...enemy.coinDrop } : undefined,
+              mods: enemy.mods ? [...enemy.mods] : undefined
+            }
+          ]
+        }
+        return [pos, enemy.id]
+      }),
       lastActionMessage: state.lastActionMessage,
       branchEntrances: Array.from(state.branchEntrances.entries()).map(([posKey, info]) => [
         posKey,
@@ -1048,7 +1197,9 @@ export class GameScene extends Phaser.Scene {
           branchKey: info.branchKey ?? null
         }
       ]),
-      branchReturnPos: state.branchReturnPos ? { x: state.branchReturnPos.x, y: state.branchReturnPos.y } : null
+      branchReturnPos: state.branchReturnPos ? { x: state.branchReturnPos.x, y: state.branchReturnPos.y } : null,
+      pendingEnding: state.pendingEnding ?? false,
+      pendingStairsUp: state.pendingStairsUp ?? false
     }
   }
 
@@ -1093,9 +1244,21 @@ export class GameScene extends Phaser.Scene {
     }
 
     const enemyNodes = new Map<string, EnemyDef>()
-    for (const [pos, id] of data.enemyNodes ?? []) {
-      const def = getEnemyDef(id)
-      if (def) enemyNodes.set(pos, def)
+    for (const [pos, entry] of data.enemyNodes ?? []) {
+      if (typeof entry === 'string') {
+        const def = getEnemyDef(entry)
+        if (def) enemyNodes.set(pos, def)
+        continue
+      }
+      if (entry && typeof entry === 'object') {
+        const def: EnemyDef = {
+          ...entry,
+          base: { ...entry.base },
+          coinDrop: entry.coinDrop ? { ...entry.coinDrop } : undefined,
+          mods: Array.isArray(entry.mods) ? [...entry.mods] : undefined
+        }
+        enemyNodes.set(pos, def)
+      }
     }
 
     const branchEntrances = new Map<string, BranchEntranceState>()
@@ -1120,7 +1283,9 @@ export class GameScene extends Phaser.Scene {
       itemDrops,
       lastActionMessage: data.lastActionMessage ?? '',
       branchEntrances,
-      branchReturnPos
+      branchReturnPos,
+      pendingEnding: !!data.pendingEnding,
+      pendingStairsUp: !!data.pendingStairsUp
     }
   }
 
