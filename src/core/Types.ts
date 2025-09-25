@@ -26,6 +26,17 @@ export interface EnemyDef {
 export type WeaponAttributeId = 'armor-break' | 'fury-strike' | 'vampiric-edge' | 'storm-surge'
 export type WeaponAttributeChargeMap = Partial<Record<WeaponAttributeId, number>>
 
+export type ArmorAttributeId =
+  | 'light-padding'
+  | 'wind-channeling'
+  | 'gust-barrier'
+  | 'scale-reinforcement'
+  | 'riverflow-weave'
+  | 'spirit-warding'
+  | 'phoenix-ember'
+  | 'starfall-bastion'
+
+export type ArmorAttributeBonuses = { def: number }
 
 export interface WeaponAttributeDef {
   id: WeaponAttributeId
@@ -38,7 +49,21 @@ export interface WeaponAttributeDef {
 }
 
 export interface WeaponDef { id: string; name: string; atk: number; desc?: string; minFloor?: number; attributeIds?: WeaponAttributeId[] }
-export interface ArmorDef { id: string; name: string; def: number; desc?: string; minFloor?: number }
+export interface ArmorAttributeDef {
+  id: ArmorAttributeId
+  name: string
+  description: string
+  defBonus?: number
+}
+
+export interface ArmorDef {
+  id: string
+  name: string
+  def: number
+  desc?: string
+  minFloor?: number
+  attributeIds?: ArmorAttributeId[]
+}
 export interface PlayerStats { hp: number; mp: number }
 export interface ItemGrant { id: string; quantity?: number }
 export interface StatusDef {

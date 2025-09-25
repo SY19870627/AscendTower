@@ -5,6 +5,7 @@ import type { SkillDef } from '../core/Types'
 import { getEffectiveCombatStats } from './combat'
 
 import { getWeaponAttributes, getWeaponAttributeChargeMax, isWeaponAttributeReady, normalizeWeaponAttributeCharges } from '../game/weapons/weaponAttributes'
+import { getArmorAttributes, sumArmorAttributeBonuses } from '../game/armors/armorAttributes'
 
 const SKILL_HOTKEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U']
 
@@ -189,7 +190,11 @@ function describeTile(scene: any, tile: string, x: number, y: number): string | 
     case 'armor': {
       const armor = scene.armorDrops?.get(posKey)
       if (!armor) return '防具：未知'
-      return `防具：${armor.name}（防禦 ${armor.def}）`
+      const attributes = getArmorAttributes(armor.attributeIds ?? [])
+      const bonuses = sumArmorAttributeBonuses(attributes)
+      const totalDef = armor.def + bonuses.def
+      const bonusText = bonuses.def ? `（屬性 +${bonuses.def}）` : ''
+      return `防具：${armor.name}（防禦 ${totalDef}${bonusText}）`
     }
     case 'item': {
       const item = scene.itemDrops?.get(posKey)
@@ -346,7 +351,17 @@ export function draw(scene: any) {
 
   if (scene.playerArmor) {
     const armor = scene.playerArmor
-    statsLines.push(`  +防禦 ${armor.def}`)
+    const attributes = getArmorAttributes(armor.attributeIds ?? [])
+    const attributeBonuses = sumArmorAttributeBonuses(attributes)
+    const totalDef = armor.def + attributeBonuses.def
+    const bonusText = attributeBonuses.def ? `（屬性 +${attributeBonuses.def}）` : ''
+    statsLines.push(`  +防禦 ${totalDef}${bonusText}`)
+    if (attributes.length) {
+      for (const attribute of attributes) {
+        statsLines.push(`  屬性 ${attribute.name}`)
+        statsLines.push(`  ${attribute.description}`)
+      }
+    }
     if (armor.desc) statsLines.push(`  ${armor.desc}`)
   }
 

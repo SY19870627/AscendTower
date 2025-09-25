@@ -15,6 +15,7 @@ import { getSkillDef, skills } from '../../content/skills'
 import { getWeaponDef } from '../../content/weapons'
 import { getArmorDef } from '../../content/armors'
 import { getWeaponAttributes, normalizeWeaponAttributeCharge, normalizeWeaponAttributeCharges } from '../weapons/weaponAttributes'
+import { getArmorAttributes, sumArmorAttributeBonuses } from '../armors/armorAttributes'
 
 export type InventoryEntry = { def: ItemDef; quantity: number }
 export type ActiveStatus = { def: StatusDef; remaining: number }
@@ -159,6 +160,11 @@ export class PlayerState {
       },
       { atk: 0, def: 0 }
     )
+  }
+
+  getArmorAttributeBonuses() {
+    const attributes = getArmorAttributes(this.armor?.attributeIds ?? [])
+    return sumArmorAttributeBonuses(attributes)
   }
 
   serialize(): SerializedPlayerState {

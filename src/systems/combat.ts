@@ -18,8 +18,11 @@ export type CombatOutcome = {
 
 export function getEffectiveCombatStats(scene: any) {
   const bonuses = typeof scene.getStatusBonuses === 'function' ? scene.getStatusBonuses() : { atk: 0, def: 0 }
+  const armorAttributeBonuses =
+    typeof scene.getArmorAttributeBonuses === 'function' ? scene.getArmorAttributeBonuses() : { def: 0 }
   const weaponAtk = (scene.playerWeapon?.atk ?? 0) + (bonuses.atk ?? 0)
-  const armorDef = (scene.playerArmor?.def ?? 0) + (bonuses.def ?? 0)
+  const armorDef =
+    (scene.playerArmor?.def ?? 0) + (bonuses.def ?? 0) + (armorAttributeBonuses.def ?? 0)
   return { atk: weaponAtk, def: armorDef }
 }
 

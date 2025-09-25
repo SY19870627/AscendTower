@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import type { ArmorDef, SkillDef, WeaponDef } from '../core/Types'
 import type { GameScene } from './GameScene'
 import type { InventoryEntry } from '../game/player/PlayerState'
+import { getArmorAttributes, sumArmorAttributeBonuses } from '../game/armors/armorAttributes'
 
 export type LibraryCategory = 'weapons' | 'armor' | 'items' | 'skills'
 
@@ -287,17 +288,31 @@ export class LibraryOverlay {
       ? stash.map((armor, idx) => {
           const pointer = idx === this.selectedIndex ? '>' : ' '
           const equipped = armor.id === currentId ? '[E]' : '   '
-          return `${pointer} ${equipped} ${idx + 1}. ${armor.name}（防禦 ${armor.def}）`
+          const attributes = getArmorAttributes(armor.attributeIds ?? [])
+          const attributeBonuses = sumArmorAttributeBonuses(attributes)
+          const totalDef = armor.def + attributeBonuses.def
+          const bonusText = attributeBonuses.def ? `（屬性 +${attributeBonuses.def}）` : ''
+          return `${pointer} ${equipped} ${idx + 1}. ${armor.name}（防禦 ${totalDef}${bonusText}）`
         })
       : ['（空）']
 
     let detail = '未選擇任何防具。'
     const armor = stash[this.selectedIndex]
     if (armor) {
+      const attributes = getArmorAttributes(armor.attributeIds ?? [])
+      const attributeBonuses = sumArmorAttributeBonuses(attributes)
+      const totalDef = armor.def + attributeBonuses.def
+      const bonusText = attributeBonuses.def ? `（屬性 +${attributeBonuses.def}）` : ''
       const detailLines = [
         `${armor.name}`,
-        `防禦 ${armor.def}`
+        `防禦 ${totalDef}${bonusText}`
       ]
+      if (attributes.length) {
+        for (const attribute of attributes) {
+          detailLines.push(`屬性 ${attribute.name}`)
+          detailLines.push(attribute.description)
+        }
+      }
       if (armor.desc) detailLines.push(armor.desc)
       detail = detailLines.join('\n')
     }

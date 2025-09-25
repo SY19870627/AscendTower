@@ -230,6 +230,10 @@ export class GameScene extends Phaser.Scene {
     return this.playerState.getStatusBonuses()
   }
 
+  getArmorAttributeBonuses() {
+    return this.playerState.getArmorAttributeBonuses()
+  }
+
   init(data?: { floor?: number; reset?: boolean; entry?: 'up' | 'down'; startMode?: 'load' }) {
     if (data?.reset) this.resetPlayerState()
     this.floor = data?.floor ?? this.floor ?? 1
