@@ -300,6 +300,17 @@ export class PlayerState {
     return messages
   }
 
+  resetFloorClearingMissions() {
+    this.ensureMissionEntries()
+    for (const mission of missions) {
+      if (mission.goal.type !== 'defeat-enemies') continue
+      if (typeof mission.floor !== 'number') continue
+      this.missionProgress.set(mission.id, 0)
+      this.unlockedMissionIds.delete(mission.id)
+      this.completedMissionIds.delete(mission.id)
+    }
+  }
+
   recordEnemyDefeat(_enemy?: EnemyDef | null): string[] {
     this.ensureMissionEntries()
     const messages: string[] = []

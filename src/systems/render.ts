@@ -156,8 +156,15 @@ function updateTileSprites(
     symbol.setDisplaySize(tileSize, tileSize)
     symbol.setFlipX(!!symbolConfig.flipX)
     symbol.setFlipY(!!symbolConfig.flipY)
-    if (symbolConfig.tint !== undefined) {
-      symbol.setTint(symbolConfig.tint)
+    let tint = symbolConfig.tint
+    if (tile === 'enemy') {
+      const forced = scene.enemyNodes?.get?.(posKey)
+      if (forced?.mods?.includes?.('elite')) {
+        tint = 0xff6b6b
+      }
+    }
+    if (tint !== undefined) {
+      symbol.setTint(tint)
     } else {
       symbol.clearTint()
     }
@@ -187,9 +194,13 @@ function describeTile(scene: any, tile: string, x: number, y: number): string | 
   const posKey = makePosKey(x, y)
   switch (tile) {
     case 'enemy': {
+      const forced = scene.enemyNodes?.get?.(posKey)
       const pool = enemies.filter(enemy => (enemy.minFloor ?? 1) <= scene.floor)
-      const enemy = pool.length ? pool[pool.length - 1] : enemies[0]
-      return `敵人：${enemy.name}（生命 ${enemy.base.hp}，攻擊 ${enemy.base.atk}）`
+      const fallback = pool.length ? pool[pool.length - 1] : enemies[0]
+      const enemy = forced ?? fallback
+      const isElite = forced?.mods?.includes?.('elite')
+      const prefix = isElite ? '菁英敵人' : '敵人'
+      return `${prefix}：${enemy.name}（生命 ${enemy.base.hp}，攻擊 ${enemy.base.atk}）`
     }
     case 'weapon': {
       const weapon = scene.weaponDrops?.get(posKey)
