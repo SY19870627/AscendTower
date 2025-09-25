@@ -220,7 +220,7 @@ export class PlayerState {
     this.ensureMissionEntries()
     this.unlockedMissionIds.clear()
     for (const mission of missions) {
-      if (mission.autoUnlock === false) continue
+      if (!mission.autoUnlock) continue
       this.unlockMission(mission.id, { silent: options?.silent ?? false })
     }
   }
@@ -245,6 +245,10 @@ export class PlayerState {
 
   private isMissionUnlocked(id: string): boolean {
     return this.unlockedMissionIds.has(id)
+  }
+
+  isMissionCompleted(id: string): boolean {
+    return this.completedMissionIds.has(id)
   }
 
   getMissionStatuses(): MissionStatus[] {
@@ -284,10 +288,10 @@ export class PlayerState {
     for (const mission of missions) {
       if (mission.goal.type !== 'reach-floor') continue
       if (this.completedMissionIds.has(mission.id)) continue
+      if (!this.isMissionUnlocked(mission.id)) continue
       const previous = this.missionProgress.get(mission.id) ?? 0
       const updated = Math.max(previous, normalized)
       this.missionProgress.set(mission.id, updated)
-      if (!this.isMissionUnlocked(mission.id)) continue
       const target = Math.max(0, Math.floor(mission.goal.target ?? 0))
       if (updated >= target) {
         messages.push(...this.completeMission(mission))
@@ -302,10 +306,10 @@ export class PlayerState {
     for (const mission of missions) {
       if (mission.goal.type !== 'defeat-enemies') continue
       if (this.completedMissionIds.has(mission.id)) continue
+      if (!this.isMissionUnlocked(mission.id)) continue
       const previous = this.missionProgress.get(mission.id) ?? 0
       const updated = previous + 1
       this.missionProgress.set(mission.id, updated)
-      if (!this.isMissionUnlocked(mission.id)) continue
       const target = Math.max(0, Math.floor(mission.goal.target ?? 0))
       if (updated >= target) {
         messages.push(...this.completeMission(mission))
@@ -322,10 +326,10 @@ export class PlayerState {
     for (const mission of missions) {
       if (mission.goal.type !== 'collect-coins') continue
       if (this.completedMissionIds.has(mission.id)) continue
+      if (!this.isMissionUnlocked(mission.id)) continue
       const previous = this.missionProgress.get(mission.id) ?? 0
       const updated = previous + gain
       this.missionProgress.set(mission.id, updated)
-      if (!this.isMissionUnlocked(mission.id)) continue
       const target = Math.max(0, Math.floor(mission.goal.target ?? 0))
       if (updated >= target) {
         messages.push(...this.completeMission(mission))
@@ -343,10 +347,10 @@ export class PlayerState {
       if (mission.goal.type !== 'collect-items') continue
       if (this.completedMissionIds.has(mission.id)) continue
       if (mission.goal.itemId && mission.goal.itemId !== item.id) continue
+      if (!this.isMissionUnlocked(mission.id)) continue
       const previous = this.missionProgress.get(mission.id) ?? 0
       const updated = previous + amount
       this.missionProgress.set(mission.id, updated)
-      if (!this.isMissionUnlocked(mission.id)) continue
       const target = Math.max(0, Math.floor(mission.goal.target ?? 0))
       if (updated >= target) {
         messages.push(...this.completeMission(mission))
@@ -563,10 +567,9 @@ export class PlayerState {
       }
     } else {
       for (const mission of missions) {
-        if (mission.autoUnlock === false && !this.completedMissionIds.has(mission.id)) {
-          continue
+        if (mission.autoUnlock || this.completedMissionIds.has(mission.id)) {
+          this.unlockMission(mission.id, { silent: true })
         }
-        this.unlockMission(mission.id, { silent: true })
       }
     }
   }

@@ -188,6 +188,7 @@ export interface MissionDef {
   goal: MissionGoal
   reward?: EventOutcome
   autoUnlock?: boolean
+  floor?: number
 }
 
 export interface MissionStatus {

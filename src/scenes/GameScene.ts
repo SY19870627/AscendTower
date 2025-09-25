@@ -5,6 +5,7 @@ import type {
   EventDef,
   EventOutcome,
   EnemyDef,
+  MissionDef,
   MissionStatus,
   Vec2,
   WeaponDef,
@@ -35,6 +36,7 @@ import { items, getItemDef } from '../content/items'
 import { weapons, getWeaponDef } from '../content/weapons'
 import { armors, getArmorDef } from '../content/armors'
 import { skills } from '../content/skills'
+import { getMissionForFloor } from '../content/missions'
 import { BattleOverlay, type BattleInitData } from './BattleOverlay'
 import { EventOverlay, type EventResolution } from './EventOverlay'
 import { ShopOverlay, type ShopResolution, type ShopInventoryEntry } from './ShopOverlay'
@@ -71,7 +73,7 @@ type SerializedGridState = {
   playerPos?: Vec2
   keyPos?: Vec2
   doorPos?: Vec2
-  stairsUpPos?: Vec2
+  stairsUpPos?: Vec2 | null
   enemyPos?: Vec2[]
   hasPlayer?: boolean
   rngState?: number
@@ -180,6 +182,7 @@ export class GameScene extends Phaser.Scene {
   private pendingReturnFromBranchKey: string | null = null
   private pendingStartMode: 'load' | null = null
   private readonly playerState = new PlayerState()
+  private activeFloorMission: MissionDef | null = null
 
   private makeFloorKey(floor: number, branchPath: number[]): string {
     if (!branchPath.length) return `${Math.max(1, Math.floor(floor))}`
@@ -335,6 +338,7 @@ export class GameScene extends Phaser.Scene {
     if (!additions.length) return
     this.appendActionMessages(additions)
     this.syncFloorLastAction()
+    this.checkFloorMissionCompletion()
   }
 
   getStatusBonuses() {
@@ -389,6 +393,7 @@ export class GameScene extends Phaser.Scene {
     this.pendingStartMode = null
     this.endingTriggered = false
     this.lifespanEndingTriggered = false
+    this.activeFloorMission = null
     this.syncFloorLastAction()
   }
 
@@ -418,6 +423,8 @@ export class GameScene extends Phaser.Scene {
     this.shopOverlay = new ShopOverlay(this)
     this.dialogueOverlay = new DialogueOverlay(this)
     this.libraryOverlay = new LibraryOverlay(this)
+
+    this.refreshFloorMission({ silentUnlock: this.pendingStartMode === 'load' })
 
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => handleInput(this, e.key))
     const floorMissionMessages = this.playerState.recordFloorReached(this.floor)
@@ -577,20 +584,6 @@ export class GameScene extends Phaser.Scene {
     draw(this)
   }
 
-
-  private ensureEndingTile() {
-    if (this.floor !== 10 || this.isBranchFloor) {
-        return
-    }
-
-    const existing = this.findEndingTilePos()
-    if (existing) {
-      return
-    }
-
-    this.grid.place('ending')
-  }
-
   private findEndingTilePos(): Vec2 | null {
     if (!this.grid?.tiles) return null
 
@@ -604,6 +597,102 @@ export class GameScene extends Phaser.Scene {
     }
 
     return null
+  }
+
+  private findStairsUpPos(): Vec2 | null {
+    if (!this.grid?.tiles) return null
+
+    const current = this.grid.stairsUpPos
+    if (
+      current &&
+      current.y >= 0 &&
+      current.y < this.grid.tiles.length &&
+      current.x >= 0 &&
+      current.x < this.grid.tiles[current.y].length &&
+      this.grid.tiles[current.y][current.x] === 'stairs_up'
+    ) {
+      return { x: current.x, y: current.y }
+    }
+
+    for (let y = 0; y < this.grid.tiles.length; y++) {
+      const row = this.grid.tiles[y]
+      for (let x = 0; x < row.length; x++) {
+        if (row[x] === 'stairs_up') {
+          this.grid.stairsUpPos = { x, y }
+          return { x, y }
+        }
+      }
+    }
+
+    this.grid.stairsUpPos = null
+    return null
+  }
+
+  private spawnCompletionTile(tile: 'stairs_up' | 'ending'): Vec2 | null {
+    if (!this.grid) return null
+    const pos = this.grid.place(tile)
+    if (tile === 'stairs_up') {
+      this.grid.stairsUpPos = { x: pos.x, y: pos.y }
+    }
+    this.grid.connectTiles(this.grid.playerPos, pos)
+    draw(this)
+    return pos
+  }
+
+  private refreshFloorMission(options?: { silentUnlock?: boolean }) {
+    if (this.isBranchFloor) {
+      this.activeFloorMission = null
+      return
+    }
+
+    const mission = getMissionForFloor(this.floor) ?? null
+    this.activeFloorMission = mission
+    if (!mission) {
+      return
+    }
+
+    const unlockMessages = this.playerState.unlockMission(mission.id, {
+      silent: options?.silentUnlock ?? false
+    })
+
+    if (unlockMessages.length) {
+      this.handleMissionMessages(unlockMessages)
+    } else {
+      this.checkFloorMissionCompletion()
+    }
+  }
+
+  private checkFloorMissionCompletion() {
+    if (this.isBranchFloor) return
+    const mission = this.activeFloorMission
+    if (!mission) return
+    if (!this.playerState.isMissionCompleted(mission.id)) return
+
+    if (this.floor === 10) {
+      const leftoverStairs = this.findStairsUpPos()
+      if (leftoverStairs) {
+        this.grid.tiles[leftoverStairs.y][leftoverStairs.x] = 'floor'
+        if (this.grid.playerPos.x === leftoverStairs.x && this.grid.playerPos.y === leftoverStairs.y) {
+          this.grid.setTileUnderPlayer('floor')
+        }
+        this.grid.stairsUpPos = null
+        draw(this)
+      }
+      const existingEnding = this.findEndingTilePos()
+      if (existingEnding) {
+        return
+      }
+      this.spawnCompletionTile('ending')
+      return
+    }
+
+    const existing = this.findStairsUpPos()
+    if (existing) {
+      this.grid.stairsUpPos = { x: existing.x, y: existing.y }
+      return
+    }
+
+    this.spawnCompletionTile('stairs_up')
   }
 
   private loadFloorState() {
@@ -622,6 +711,7 @@ export class GameScene extends Phaser.Scene {
       this.branchEntrances = cached.branchEntrances
       this.branchReturnPos = cached.branchReturnPos
       this.syncFloorLastAction()
+      this.findStairsUpPos()
       this.positionPlayerForEntry()
       return
     }
@@ -659,7 +749,6 @@ export class GameScene extends Phaser.Scene {
     this.spawnShops()
     this.spawnEvents()
     this.spawnNpcs()
-    this.ensureEndingTile()
     this.spawnBranchEntrances()
     if (!this.knownSkills.length) this.learnSkill('battle-shout', { silent: true })
 
@@ -683,6 +772,8 @@ export class GameScene extends Phaser.Scene {
   private positionPlayerForEntry() {
     const entry = this.pendingEntry
     this.pendingEntry = null
+
+    this.findStairsUpPos()
 
     const getUnderlyingAt = (pos: Vec2): Tile => {
       if (this.grid.hasActivePlayer() && pos.x === this.grid.playerPos.x && pos.y === this.grid.playerPos.y) {
@@ -888,7 +979,7 @@ export class GameScene extends Phaser.Scene {
       playerPos: { x: grid.playerPos.x, y: grid.playerPos.y },
       keyPos: { x: grid.keyPos.x, y: grid.keyPos.y },
       doorPos: { x: grid.doorPos.x, y: grid.doorPos.y },
-      stairsUpPos: { x: grid.stairsUpPos.x, y: grid.stairsUpPos.y },
+      stairsUpPos: grid.stairsUpPos ? { x: grid.stairsUpPos.x, y: grid.stairsUpPos.y } : null,
       enemyPos: grid.enemyPos.map(pos => ({ x: pos.x, y: pos.y })),
       rngState: grid.rng.getState(),
       hasPlayer: grid.hasActivePlayer()
@@ -910,7 +1001,11 @@ export class GameScene extends Phaser.Scene {
 
     if (data.keyPos) grid.keyPos = { x: data.keyPos.x, y: data.keyPos.y }
     if (data.doorPos) grid.doorPos = { x: data.doorPos.x, y: data.doorPos.y }
-    if (data.stairsUpPos) grid.stairsUpPos = { x: data.stairsUpPos.x, y: data.stairsUpPos.y }
+    if (data.stairsUpPos) {
+      grid.stairsUpPos = { x: data.stairsUpPos.x, y: data.stairsUpPos.y }
+    } else {
+      grid.stairsUpPos = null
+    }
 
     const playerPos = data.playerPos ?? grid.playerPos
     const tileUnder = (data.tileUnderPlayer ?? grid.getTileUnderPlayer()) as Tile
@@ -1133,6 +1228,8 @@ export class GameScene extends Phaser.Scene {
       this.nextBranchIndex.set(key, maxIndex)
     }
 
+    this.findStairsUpPos()
+    this.refreshFloorMission({ silentUnlock: true })
     this.syncFloorLastAction()
     return true
   }
