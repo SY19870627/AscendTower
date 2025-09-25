@@ -423,6 +423,30 @@ export function draw(scene: any) {
   })
   currentY += Math.max(statusText.split('\n').length, 1) * lineHeight + sectionGap
 
+  const inventoryStacks: any[] = scene.inventory ?? []
+  const inventoryLines = inventoryStacks.length
+    ? inventoryStacks.map((stack: any, idx: number) => {
+        const qty = stack.quantity > 1 ? ` x${stack.quantity}` : ''
+        const label = stack.def?.name ?? stack.name ?? '未知'
+        return `${idx + 1}. ${label}${qty}`
+      })
+    : ['（空）']
+  const inventoryHeader = '背包'
+  const inventoryText = [inventoryHeader, ...inventoryLines].join('\n')
+  const inventoryColor = inventoryStacks.length ? '#cfe' : '#888888'
+  addText(scene, activeTextIds, 'inventory', statsStartX, currentY, inventoryText, {
+    fontSize: '14px',
+    lineSpacing: 4,
+    color: inventoryColor
+  })
+  currentY += Math.max(inventoryText.split('\n').length, 1) * lineHeight + sectionGap
+
+  const directionInfo = gatherDirectionInfo(scene)
+  const rightPanelX = baseX + grid.w * tileSize + 24
+  let directionY = scene.sidebarPadding ?? 16
+  const boxWidth = 220
+  const boxPadding = 8
+
   const missionStatuses: MissionStatus[] = scene.missionStatuses ?? []
   const missionLines = missionStatuses.length
     ? missionStatuses.flatMap(status => {
@@ -454,38 +478,18 @@ export function draw(scene: any) {
       })
     : ['（暫無任務）']
   const missionHeader = '任務：'
-  const missionText = [missionHeader, ...missionLines].join('\n')
+  const missionTextLines = [missionHeader, ...missionLines]
   const missionColor = missionStatuses.some(status => status.completed) ? '#b0f4b5' : '#cfe'
-  addText(scene, activeTextIds, 'missions', statsStartX, currentY, missionText, {
+  const missionBoxHeight = missionTextLines.length * lineHeight + boxPadding * 2
+
+  gfx.fillStyle(0x103030, 0.85).fillRect(rightPanelX, directionY, boxWidth, missionBoxHeight)
+  gfx.lineStyle(1, 0x2c4c4c, 1).strokeRect(rightPanelX, directionY, boxWidth, missionBoxHeight)
+  addText(scene, activeTextIds, 'missions', rightPanelX + boxPadding, directionY + boxPadding, missionTextLines.join('\n'), {
     fontSize: '14px',
     lineSpacing: 4,
     color: missionColor
   })
-  currentY += Math.max(missionText.split('\n').length, 1) * lineHeight + sectionGap
-
-  const inventoryStacks: any[] = scene.inventory ?? []
-  const inventoryLines = inventoryStacks.length
-    ? inventoryStacks.map((stack: any, idx: number) => {
-        const qty = stack.quantity > 1 ? ` x${stack.quantity}` : ''
-        const label = stack.def?.name ?? stack.name ?? '未知'
-        return `${idx + 1}. ${label}${qty}`
-      })
-    : ['（空）']
-  const inventoryHeader = '背包'
-  const inventoryText = [inventoryHeader, ...inventoryLines].join('\n')
-  const inventoryColor = inventoryStacks.length ? '#cfe' : '#888888'
-  addText(scene, activeTextIds, 'inventory', statsStartX, currentY, inventoryText, {
-    fontSize: '14px',
-    lineSpacing: 4,
-    color: inventoryColor
-  })
-  currentY += Math.max(inventoryText.split('\n').length, 1) * lineHeight + sectionGap
-
-  const directionInfo = gatherDirectionInfo(scene)
-  const rightPanelX = baseX + grid.w * tileSize + 24
-  let directionY = scene.sidebarPadding ?? 16
-  const boxWidth = 220
-  const boxPadding = 8
+  directionY += missionBoxHeight + 16
 
   const historyMargin = 16
   const totalHeight = scene.scale?.height ?? (scene.game?.config?.height as number) ?? 0
