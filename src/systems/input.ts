@@ -28,14 +28,6 @@ export function handleInput(scene: any, key: string) {
     }
     return
   }
-  const skillMap: Record<string, number> = { q: 0, w: 1, e: 2, r: 3, t: 4, y: 5, u: 6 }
-  const skillIndex = skillMap[key.toLowerCase()]
-  if (typeof skillIndex === "number") {
-    if (scene.useSkill?.(skillIndex)) return
-  }
-  if (/^[1-9]$/.test(key)) {
-    if (scene.useInventorySlot?.(Number.parseInt(key, 10) - 1)) return
-  }
   const dir = ({
     ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 },
     w: { x: 0, y: -1 }, s: { x: 0, y: 1 }, a: { x: -1, y: 0 }, d: { x: 1, y: 0 }

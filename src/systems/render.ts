@@ -7,7 +7,6 @@ import { getEffectiveCombatStats } from './combat'
 import { getWeaponAttributes, getWeaponAttributeChargeMax, isWeaponAttributeReady, normalizeWeaponAttributeCharges } from '../game/weapons/weaponAttributes'
 import { getArmorAttributes, sumArmorAttributeBonuses } from '../game/armors/armorAttributes'
 
-const SKILL_HOTKEYS = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U']
 
 const TILE_TEXTURE_KEY = 'floor_wall'
 const SYMBOL_TEXTURE_KEY = 'symbol_tiles'
@@ -405,7 +404,7 @@ export function draw(scene: any) {
 
   const knownSkills: SkillDef[] = scene.knownSkills ?? []
   const skillLines = knownSkills.map((skill, idx) => {
-    const hotkey = SKILL_HOTKEYS[idx] ?? `#${idx + 1}`
+    const label = `${idx + 1}. ${skill.name}`
     let cooldown = 0
     if (typeof scene.getSkillCooldown === 'function') {
       cooldown = scene.getSkillCooldown(skill.id) ?? 0
@@ -413,7 +412,7 @@ export function draw(scene: any) {
       cooldown = scene.skillCooldowns.get(skill.id) ?? 0
     }
     const state = cooldown > 0 ? `CD ${cooldown}` : '就緒'
-    return `${hotkey} ${skill.name} (${state})`
+    return `${label} (${state})`
   })
   const skillHeader = '技能：'
   const skillText = skillLines.length ? [skillHeader, ...skillLines].join('\n') : `${skillHeader} 無`
@@ -433,7 +432,7 @@ export function draw(scene: any) {
         return `${idx + 1}. ${label}${qty}`
       })
     : ['（空）']
-  const inventoryHeader = '背包（按 1-9 使用）'
+  const inventoryHeader = '背包'
   const inventoryText = [inventoryHeader, ...inventoryLines].join('\n')
   const inventoryColor = inventoryStacks.length ? '#cfe' : '#888888'
   addText(scene, activeTextIds, 'inventory', statsStartX, currentY, inventoryText, {
@@ -473,7 +472,6 @@ export function draw(scene: any) {
 
   const instructions = [
     '移動: WASD / 方向鍵',
-    '使用技能: Q/W/E',
     '開啟圖鑑: L',
     '存檔:P 讀檔:O'
   ].join('\n')
