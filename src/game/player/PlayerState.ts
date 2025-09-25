@@ -5,6 +5,7 @@ import type {
   ItemDef,
   MissionDef,
   MissionStatus,
+  PlayerStats,
   SkillDef,
   StatusDef,
   StatusGrant,
@@ -28,7 +29,13 @@ export type SerializedInventoryEntry = { id?: string; quantity?: number }
 export type SerializedStatusEntry = { id?: string; remaining?: number }
 export type SerializedPlayerState = {
   hasKey?: boolean
-  stats?: { hp?: number; mp?: number }
+  stats?: {
+    hp?: number
+    mp?: number
+    bodyForce?: number
+    essenceVein?: number
+    morality?: number
+  }
   weaponId?: string | null
   armorId?: string | null
   weaponAttributeCharge?: number
@@ -56,12 +63,18 @@ type ApplyOutcomeResult = {
 type PlayerStateConfig = {
   baseHp?: number
   baseMp?: number
+  baseBodyForce?: number
+  baseEssenceVein?: number
+  baseMorality?: number
   startingCoins?: number
   defaultSkillIds?: string[]
 }
 
 const DEFAULT_HP = 120
 const DEFAULT_MP = 20
+const DEFAULT_BODY_FORCE = 10
+const DEFAULT_ESSENCE_VEIN = 10
+const DEFAULT_MORALITY = 0
 const DEFAULT_COINS = 120
 const DEFAULT_SKILLS = ['battle-shout']
 const DEFAULT_WEAPON_ID = 'bare-hands'
@@ -74,7 +87,13 @@ const MAX_AGE_HALF_MONTHS = MAX_AGE_YEARS * HALF_MONTHS_PER_YEAR
 
 export class PlayerState {
   hasKey = false
-  stats = { hp: DEFAULT_HP, mp: DEFAULT_MP }
+  stats: PlayerStats = {
+    hp: DEFAULT_HP,
+    mp: DEFAULT_MP,
+    bodyForce: DEFAULT_BODY_FORCE,
+    essenceVein: DEFAULT_ESSENCE_VEIN,
+    morality: DEFAULT_MORALITY
+  }
   weapon: WeaponDef | null = null
   armor: ArmorDef | null = null
   weaponAttributeCharges = new Map<WeaponAttributeId, number>()
@@ -138,10 +157,19 @@ export class PlayerState {
     this.defaults = {
       baseHp: config?.baseHp ?? DEFAULT_HP,
       baseMp: config?.baseMp ?? DEFAULT_MP,
+      baseBodyForce: config?.baseBodyForce ?? DEFAULT_BODY_FORCE,
+      baseEssenceVein: config?.baseEssenceVein ?? DEFAULT_ESSENCE_VEIN,
+      baseMorality: config?.baseMorality ?? DEFAULT_MORALITY,
       startingCoins: config?.startingCoins ?? DEFAULT_COINS,
       defaultSkillIds: config?.defaultSkillIds ?? DEFAULT_SKILLS
     }
-    this.stats = { hp: this.defaults.baseHp, mp: this.defaults.baseMp }
+    this.stats = {
+      hp: this.defaults.baseHp,
+      mp: this.defaults.baseMp,
+      bodyForce: this.defaults.baseBodyForce,
+      essenceVein: this.defaults.baseEssenceVein,
+      morality: this.defaults.baseMorality
+    }
     this.coins = this.defaults.startingCoins
     this.equipDefaultGear()
     this.initializeMissionState({ silent: true })
@@ -149,7 +177,13 @@ export class PlayerState {
 
   reset() {
     this.hasKey = false
-    this.stats = { hp: this.defaults.baseHp, mp: this.defaults.baseMp }
+    this.stats = {
+      hp: this.defaults.baseHp,
+      mp: this.defaults.baseMp,
+      bodyForce: this.defaults.baseBodyForce,
+      essenceVein: this.defaults.baseEssenceVein,
+      morality: this.defaults.baseMorality
+    }
     this.weapon = null
     this.weaponStash = []
     this.armor = null
@@ -348,7 +382,13 @@ export class PlayerState {
 
     return {
       hasKey: this.hasKey,
-      stats: { hp: this.stats.hp, mp: this.stats.mp },
+      stats: {
+        hp: this.stats.hp,
+        mp: this.stats.mp,
+        bodyForce: this.stats.bodyForce,
+        essenceVein: this.stats.essenceVein,
+        morality: this.stats.morality
+      },
       weaponId: this.weapon?.id ?? null,
       armorId: this.armor?.id ?? null,
       weaponAttributeCharge: primaryCharge,
@@ -383,7 +423,13 @@ export class PlayerState {
     this.hasKey = !!state.hasKey
     const hp = Math.max(0, Math.floor(state.stats?.hp ?? this.defaults.baseHp))
     const mp = Math.max(0, Math.floor(state.stats?.mp ?? this.defaults.baseMp))
-    this.stats = { hp, mp }
+    const bodyForce = Math.max(0, Math.floor(state.stats?.bodyForce ?? this.defaults.baseBodyForce))
+    const essenceVein = Math.max(0, Math.floor(state.stats?.essenceVein ?? this.defaults.baseEssenceVein))
+    let morality = this.defaults.baseMorality
+    if (typeof state.stats?.morality === 'number' && Number.isFinite(state.stats.morality)) {
+      morality = Math.floor(state.stats.morality)
+    }
+    this.stats = { hp, mp, bodyForce, essenceVein, morality }
 
     this.weapon = state.weaponId ? getWeaponDef(state.weaponId) ?? null : null
 

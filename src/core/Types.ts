@@ -79,7 +79,13 @@ export interface ArmorDef extends SpawnableDef {
   desc?: string
   attributeIds?: ArmorAttributeId[]
 }
-export interface PlayerStats { hp: number; mp: number }
+export interface PlayerStats {
+  hp: number
+  mp: number
+  bodyForce: number
+  essenceVein: number
+  morality: number
+}
 export interface ItemGrant { id: string; quantity?: number }
 export interface StatusDef {
   id: string

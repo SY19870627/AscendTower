@@ -262,13 +262,21 @@ export class BattleOverlay {
       if (this.playerArmor.desc) armorLines.push(this.playerArmor.desc)
     }
 
-    const playerLines = [
-      '你',
-      `生命：${this.playerHp}/${this.startingHp}`,
-      `防禦：${this.playerDef}`,
-      ...weaponLines,
-      ...armorLines
-    ]
+    const playerStats = this.host.playerStats ?? null
+    const playerLines = ['你']
+    if (playerStats) {
+      playerLines.push(
+        `生命：${this.playerHp}/${this.startingHp}`,
+        `骨勁：${playerStats.bodyForce ?? 0}`,
+        `元脈：${playerStats.essenceVein ?? 0}`,
+        `善惡值：${playerStats.morality ?? 0}`
+      )
+    } else {
+      playerLines.push(`生命：${this.playerHp}/${this.startingHp}`)
+    }
+    playerLines.push(`防禦：${this.playerDef}`)
+    playerLines.push(...weaponLines)
+    playerLines.push(...armorLines)
 
     this.playerText.setText(playerLines.join('\n'))
 

@@ -341,8 +341,16 @@ export function draw(scene: any) {
   if (typeof scene.lifespanRemainingDisplay === 'string' && scene.lifespanRemainingDisplay.length) {
     statsLines.push(`剩餘壽命 ${scene.lifespanRemainingDisplay}`)
   }
+  const playerStats = scene.playerStats ?? null
+  statsLines.push(`生命 ${playerStats?.hp ?? 0}`)
+  if (playerStats) {
+    statsLines.push(
+      `骨勁 ${playerStats.bodyForce ?? 0}`,
+      `元脈 ${playerStats.essenceVein ?? 0}`,
+      `善惡值 ${playerStats.morality ?? 0}`
+    )
+  }
   statsLines.push(
-    `生命 ${scene.playerStats?.hp ?? 0}`,
     `攻擊 ${combatStats.atk}`,
     `防禦 ${combatStats.def}`,
     `鑰匙 ${scene.hasKey ? '有' : '無'}`,

@@ -61,7 +61,7 @@ type FloorState = {
 }
 
 export const SAVE_KEY = 'ascend-tower-save-v1'
-const SAVE_VERSION = 3
+const SAVE_VERSION = 4
 
 type SerializedGridState = {
   w?: number
