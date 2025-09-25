@@ -3,6 +3,7 @@ import { RNG } from './RNG'
 
 type GridOptions = {
   includeDownstairs?: boolean
+  enemyCount?: number
 }
 
 export class Grid {
@@ -141,7 +142,8 @@ export class Grid {
     this.doorPos = this.place('door')
     this.stairsUpPos = this.place('stairs_up')
 
-    for (let i = 0; i < 5; i++) {
+    const enemyCount = Math.max(0, Math.floor(options?.enemyCount ?? 5))
+    for (let i = 0; i < enemyCount; i++) {
       this.enemyPos.push(this.place('enemy'))
     }
 

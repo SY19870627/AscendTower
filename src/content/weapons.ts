@@ -11,7 +11,10 @@ const catalog: WeaponDef[] = [
     id: 'rusty-sword',
     name: '鏽蝕長劍',
     atk: 5,
-    desc: '老舊的刀刃，總比徒手好。'
+    desc: '老舊的刀刃，總比徒手好。',
+    spawnRules: [
+      { floors: [1, 2], count: 1 }
+    ]
   },
   {
     id: 'iron-spear',
@@ -19,7 +22,9 @@ const catalog: WeaponDef[] = [
     atk: 8,
     attributeIds: ['armor-break'],
     desc: '攻守距離平衡。',
-    minFloor: 2
+    spawnRules: [
+      { floors: [2, 3], count: 1 }
+    ]
   },
   {
     id: 'jade-charm',
@@ -27,7 +32,9 @@ const catalog: WeaponDef[] = [
     atk: 10,
     attributeIds: ['vampiric-edge'],
     desc: '導引致命真氣的玄妙符器。',
-    minFloor: 3
+    spawnRules: [
+      { floors: [3, 4], count: 1 }
+    ]
   },
   {
     id: 'storm-halberd',
@@ -35,7 +42,9 @@ const catalog: WeaponDef[] = [
     atk: 12,
     attributeIds: ['storm-surge', 'fury-strike'],
     desc: '嵌有雷晶的長戟，每次擊落皆伴隨驟風。',
-    minFloor: 3
+    spawnRules: [
+      { floors: [4, 5], count: 1 }
+    ]
   },
   {
     id: 'moonshadow-daggers',
@@ -43,7 +52,9 @@ const catalog: WeaponDef[] = [
     atk: 11,
     attributeIds: ['fury-strike'],
     desc: '以月鋒鍛成的雙刃，專為敏捷刺客打造。',
-    minFloor: 3
+    spawnRules: [
+      { floors: [3, 4], count: 1 }
+    ]
   },
   {
     id: 'crag-hammer',
@@ -51,7 +62,9 @@ const catalog: WeaponDef[] = [
     atk: 14,
     attributeIds: ['fury-strike'],
     desc: '沉重的戰鎚，敲擊之勢有如碎裂山巒。',
-    minFloor: 4
+    spawnRules: [
+      { floors: [4, 5], count: 1 }
+    ]
   },
   {
     id: 'serene-flute',
@@ -59,7 +72,9 @@ const catalog: WeaponDef[] = [
     atk: 9,
     attributeIds: ['vampiric-edge'],
     desc: '一支以雲杉雕成的笛子，音色可化作靈刃。',
-    minFloor: 4
+    spawnRules: [
+      { floors: [5, 6], count: 1 }
+    ]
   },
   {
     id: 'sunforged-blade',
@@ -67,7 +82,9 @@ const catalog: WeaponDef[] = [
     atk: 16,
     attributeIds: ['armor-break', 'storm-surge'],
     desc: '以熔金赤銅淬鍛，閃耀的刀刃蘊藏灼熱。',
-    minFloor: 6
+    spawnRules: [
+      { floors: [6, 7, 8, 9, 10], count: 1 }
+    ]
   }
 ]
 

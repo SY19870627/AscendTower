@@ -13,55 +13,70 @@ const catalog: ArmorDef[] = [
     name: '皮革護甲',
     def: 1,
     desc: '輕薄的襯層，可稍稍緩衝衝擊。',
-    attributeIds: ['light-padding', 'wind-channeling']
+    attributeIds: ['light-padding', 'wind-channeling'],
+    spawnRules: [
+      { floors: [1, 2], count: 1 }
+    ]
   },
   {
     id: 'windwalk-cloak',
     name: '風行斗篷',
     def: 2,
     desc: '以風絲織就的披覆，減緩來襲之勢。',
-    minFloor: 2,
-    attributeIds: ['wind-channeling', 'gust-barrier']
+    attributeIds: ['wind-channeling', 'gust-barrier'],
+    spawnRules: [
+      { floors: [2, 3], count: 1 }
+    ]
   },
   {
     id: 'scale-mail',
     name: '鱗甲',
     def: 3,
     desc: '厚重的甲片，以速度換取安全。',
-    minFloor: 3,
-    attributeIds: ['scale-reinforcement', 'light-padding']
+    attributeIds: ['scale-reinforcement', 'light-padding'],
+    spawnRules: [
+      { floors: [3, 4], count: 1 }
+    ]
   },
   {
     id: 'river-ward-mail',
     name: '川衛軟甲',
     def: 3,
     desc: '水紋皮革層層包覆，能順勢卸力。',
-    minFloor: 3,
-    attributeIds: ['riverflow-weave', 'wind-channeling']
+    attributeIds: ['riverflow-weave', 'wind-channeling'],
+    spawnRules: [
+      { floors: [3, 4], count: 1 }
+    ]
   },
   {
     id: 'spirit-robe',
     name: '靈紋法袍',
     def: 2,
     desc: '符咒縈繞的衣料，增強真氣。',
-    minFloor: 4,
-    attributeIds: ['spirit-warding', 'light-padding']
+    attributeIds: ['spirit-warding', 'light-padding'],
+    spawnRules: [
+      { floors: [4, 5], count: 1 }
+    ]
   },
   {
     id: 'phoenix-ward',
     name: '鳳羽護衣',
     def: 2,
     desc: '覆有赤羽的護衣，灼熱氣息守護身軀。',
-    minFloor: 4,
-    attributeIds: ['phoenix-ember', 'wind-channeling', 'light-padding']
+    attributeIds: ['phoenix-ember', 'wind-channeling', 'light-padding'],
+    spawnRules: [
+      { floors: [5, 6], count: 1 }
+    ]
   },
   {
     id: 'starfall-plate',
     name: '墜星重鎧',
     def: 3,
     desc: '隕星鋪鑄的厚鎧，連山岳衝擊也難以撼動。',
-    minFloor: 5,
-    attributeIds: ['starfall-bastion', 'scale-reinforcement']
+    attributeIds: ['starfall-bastion', 'scale-reinforcement'],
+    spawnRules: [
+      { floors: [6, 7, 8, 9, 10], count: 1 }
+    ]
   }
 ]
 
