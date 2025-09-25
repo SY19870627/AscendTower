@@ -4,6 +4,7 @@ import { RNG } from './RNG'
 type GridOptions = {
   includeDownstairs?: boolean
   enemyCount?: number
+  wallThickness?: number
 }
 
 export class Grid {
@@ -19,12 +20,19 @@ export class Grid {
   enemyPos: Vec2[] = []
   tileUnderPlayer: Tile = 'floor'
   private hasPlayer = false
+  private wallThickness: number
 
   constructor(w = 14, h = 14, seed = 1337, options?: GridOptions) {
     this.w = w
     this.h = h
     this.rng = new RNG(seed)
     this.tiles = Array.from({ length: h }, () => Array.from({ length: w }, () => 'floor' as Tile))
+    const normalizedThickness = Math.max(0, Math.floor(options?.wallThickness ?? 1))
+    const maxThickness = Math.max(
+      0,
+      Math.min(Math.floor((this.w - 1) / 2), Math.floor((this.h - 1) / 2))
+    )
+    this.wallThickness = Math.max(0, Math.min(normalizedThickness, maxThickness))
     this.generate(options)
   }
 
@@ -103,7 +111,11 @@ export class Grid {
 
   place(t: Tile) {
     while (true) {
-      const p = { x: this.rng.int(1, this.w - 2), y: this.rng.int(1, this.h - 2) }
+      const minX = this.wallThickness
+      const maxX = Math.max(minX, this.w - this.wallThickness - 1)
+      const minY = this.wallThickness
+      const maxY = Math.max(minY, this.h - this.wallThickness - 1)
+      const p = { x: this.rng.int(minX, maxX), y: this.rng.int(minY, maxY) }
       if (this.tiles[p.y][p.x] === 'floor') {
         this.tiles[p.y][p.x] = t
         return p
@@ -116,16 +128,15 @@ export class Grid {
 
     for (let y = 0; y < this.h; y++) {
       for (let x = 0; x < this.w; x++) {
-        if (x === 0 || y === 0 || x === this.w - 1 || y === this.h - 1) {
+        if (
+          x < this.wallThickness ||
+          y < this.wallThickness ||
+          x >= this.w - this.wallThickness ||
+          y >= this.h - this.wallThickness
+        ) {
           this.tiles[y][x] = 'wall'
         }
       }
-    }
-
-    for (let i = 0; i < 18; i++) {
-      const x = this.rng.int(1, this.w - 2)
-      const y = this.rng.int(1, this.h - 2)
-      this.tiles[y][x] = 'wall'
     }
 
     if (includeDownstairs) {
@@ -141,11 +152,6 @@ export class Grid {
     this.keyPos = this.place('key')
     this.doorPos = this.place('door')
     this.stairsUpPos = this.place('stairs_up')
-
-    const enemyCount = Math.max(0, Math.floor(options?.enemyCount ?? 5))
-    for (let i = 0; i < enemyCount; i++) {
-      this.enemyPos.push(this.place('enemy'))
-    }
 
     this.carvePath(this.playerPos, this.keyPos)
     this.carvePath(this.keyPos, this.doorPos)
