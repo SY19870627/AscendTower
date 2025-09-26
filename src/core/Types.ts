@@ -11,6 +11,7 @@ export type Tile =
   | 'weapon'
   | 'armor'
   | 'event'
+  | 'battle_event'
   | 'shop'
   | 'npc'
   | 'item'
@@ -164,6 +165,17 @@ export interface EventDef {
   preview?: string
   minFloor?: number
   options: EventOption[]
+}
+
+export interface BattleEventDef {
+  id: string
+  title: string
+  description: string
+  preview?: string
+  minFloor?: number
+  enemyId: string
+  triggerMessage?: string
+  enemyMods?: string[]
 }
 
 export interface NpcDef extends SpawnableDef {
