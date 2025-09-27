@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { Grid } from '../core/Grid'
 import type {
   ArmorDef,
+  BattleEventDef,
   EventDef,
   EventOutcome,
   EnemyDef,
@@ -30,6 +31,7 @@ import {
 } from '../systems/spawning'
 import { enemies, getEnemyDef } from '../content/enemies'
 import { events, getEventDef } from '../content/events'
+import { battleEvents, getBattleEventDef } from '../content/battleEvents'
 import { npcs, getNpcDef } from '../content/npcs'
 import { shops, getShopsForFloor, getShopDef } from '../content/shops'
 import { items, getItemDef } from '../content/items'
@@ -53,6 +55,7 @@ type FloorState = {
   weaponDrops: Map<string, WeaponDef>
   armorDrops: Map<string, ArmorDef>
   eventNodes: Map<string, EventDef>
+  battleEventNodes: Map<string, BattleEventDef>
   npcNodes: Map<string, NpcDef>
   shopNodes: Map<string, ShopDef>
   itemDrops: Map<string, ItemDef>
@@ -89,6 +92,7 @@ type SerializedFloorState = {
   armorDrops?: Array<[string, string]>
   itemDrops?: Array<[string, string]>
   eventNodes?: Array<[string, string]>
+  battleEventNodes?: Array<[string, string]>
   npcNodes?: Array<[string, string]>
   shopNodes?: Array<[string, string]>
   enemyNodes?: Array<[string, string | EnemyDef]>
@@ -146,6 +150,7 @@ export class GameScene extends Phaser.Scene {
   weaponDrops = new Map<string, WeaponDef>()
   armorDrops = new Map<string, ArmorDef>()
   eventNodes = new Map<string, EventDef>()
+  battleEventNodes = new Map<string, BattleEventDef>()
   npcNodes = new Map<string, NpcDef>()
   shopNodes = new Map<string, ShopDef>()
   itemDrops = new Map<string, ItemDef>()
@@ -824,6 +829,7 @@ export class GameScene extends Phaser.Scene {
       this.weaponDrops = cached.weaponDrops
       this.armorDrops = cached.armorDrops
       this.eventNodes = cached.eventNodes
+      this.battleEventNodes = cached.battleEventNodes
       this.npcNodes = cached.npcNodes
       this.shopNodes = cached.shopNodes
       this.itemDrops = cached.itemDrops
@@ -847,6 +853,7 @@ export class GameScene extends Phaser.Scene {
     this.weaponDrops = new Map<string, WeaponDef>()
     this.armorDrops = new Map<string, ArmorDef>()
     this.eventNodes = new Map<string, EventDef>()
+    this.battleEventNodes = new Map<string, BattleEventDef>()
     this.npcNodes = new Map<string, NpcDef>()
     this.shopNodes = new Map<string, ShopDef>()
     this.itemDrops = new Map<string, ItemDef>()
@@ -871,6 +878,7 @@ export class GameScene extends Phaser.Scene {
     spawnItems(this)
     this.spawnShops()
     this.spawnEvents()
+    this.spawnBattleEvents()
     this.spawnNpcs()
     this.spawnBranchEntrances()
     if (this.isBranchFloor) {
@@ -883,6 +891,7 @@ export class GameScene extends Phaser.Scene {
       weaponDrops: this.weaponDrops,
       armorDrops: this.armorDrops,
       eventNodes: this.eventNodes,
+      battleEventNodes: this.battleEventNodes,
       npcNodes: this.npcNodes,
       shopNodes: this.shopNodes,
       enemyNodes: this.enemyNodes,
@@ -1171,6 +1180,7 @@ export class GameScene extends Phaser.Scene {
       armorDrops: Array.from(state.armorDrops.entries()).map(([pos, armor]) => [pos, armor.id]),
       itemDrops: Array.from(state.itemDrops.entries()).map(([pos, item]) => [pos, item.id]),
       eventNodes: Array.from(state.eventNodes.entries()).map(([pos, event]) => [pos, event.id]),
+      battleEventNodes: Array.from(state.battleEventNodes.entries()).map(([pos, event]) => [pos, event.id]),
       npcNodes: Array.from(state.npcNodes.entries()).map(([pos, npc]) => [pos, npc.id]),
       shopNodes: Array.from(state.shopNodes.entries()).map(([pos, shop]) => [pos, shop.id]),
       enemyNodes: Array.from(state.enemyNodes.entries()).map(([pos, enemy]) => {
@@ -1231,6 +1241,12 @@ export class GameScene extends Phaser.Scene {
       if (def) eventNodes.set(pos, def)
     }
 
+    const battleEventNodes = new Map<string, BattleEventDef>()
+    for (const [pos, id] of data.battleEventNodes ?? []) {
+      const def = getBattleEventDef(id)
+      if (def) battleEventNodes.set(pos, def)
+    }
+
     const npcNodes = new Map<string, NpcDef>()
     for (const [pos, id] of data.npcNodes ?? []) {
       const def = getNpcDef(id)
@@ -1277,6 +1293,7 @@ export class GameScene extends Phaser.Scene {
       weaponDrops,
       armorDrops,
       eventNodes,
+      battleEventNodes,
       npcNodes,
       shopNodes,
       enemyNodes,
@@ -1356,6 +1373,7 @@ export class GameScene extends Phaser.Scene {
     this.weaponDrops = active.weaponDrops
     this.armorDrops = active.armorDrops
     this.eventNodes = active.eventNodes
+    this.battleEventNodes = active.battleEventNodes
     this.npcNodes = active.npcNodes
     this.shopNodes = active.shopNodes
     this.itemDrops = active.itemDrops
@@ -1527,6 +1545,26 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private spawnBattleEvents() {
+    if (this.floor < 2) return
+
+    const available = battleEvents.filter(event => (event.minFloor ?? 1) <= this.floor)
+    if (!available.length) return
+
+    const pool = [...available]
+    let spawnCount = Math.floor(this.floor / 3) + 1
+    spawnCount = Math.min(spawnCount, 2, pool.length)
+    if (spawnCount <= 0) return
+
+    for (let i = 0; i < spawnCount; i++) {
+      if (!pool.length) pool.push(...available)
+      const pick = this.grid.rng.int(0, pool.length - 1)
+      const def = pool.splice(pick, 1)[0]
+      const pos = this.grid.place('battle_event')
+      this.battleEventNodes.set(makePosKey(pos.x, pos.y), def)
+    }
+  }
+
   private spawnBranchEntrances() {
     if (this.isBranchFloor) {
       return
@@ -1598,7 +1636,52 @@ export class GameScene extends Phaser.Scene {
     this.eventOverlay.open({ event: eventDef, pos })
   }
 
+  startBattleEventEncounter(pos: Vec2) {
+    if (this.libraryOverlay?.isActive) this.libraryOverlay.close()
+    if (this.eventOverlay?.isActive) return
+    if (this.shopOverlay?.isActive) return
+    if (this.battleOverlay?.isActive) return
 
+    const key = makePosKey(pos.x, pos.y)
+    const eventDef = this.battleEventNodes.get(key)
+    if (!eventDef) return
+
+    const enemyBase = getEnemyDef(eventDef.enemyId)
+    if (!enemyBase) return
+
+    const forcedEnemy: EnemyDef = {
+      ...enemyBase,
+      base: { ...enemyBase.base },
+      coinDrop: enemyBase.coinDrop ? { ...enemyBase.coinDrop } : undefined,
+      mods: enemyBase.mods ? [...enemyBase.mods] : undefined
+    }
+
+    if (eventDef.enemyMods?.length) {
+      const mergedMods = new Set<string>(forcedEnemy.mods ?? [])
+      for (const mod of eventDef.enemyMods) {
+        if (typeof mod === 'string' && mod.length) mergedMods.add(mod)
+      }
+      forcedEnemy.mods = Array.from(mergedMods)
+    }
+
+    this.enemyNodes.set(key, forcedEnemy)
+    if (!this.grid.enemyPos.some(p => p.x === pos.x && p.y === pos.y)) {
+      this.grid.enemyPos.push({ x: pos.x, y: pos.y })
+    }
+
+    this.grid.tiles[pos.y][pos.x] = 'enemy'
+    this.battleEventNodes.delete(key)
+
+    const lines = [`戰鬥事件：${eventDef.title}`]
+    const detail = eventDef.triggerMessage ?? eventDef.description
+    if (detail?.length) lines.push(detail)
+    lines.push(`敵人現身：${forcedEnemy.name}`)
+    this.appendActionMessages(lines)
+    this.syncFloorLastAction()
+    draw(this)
+
+    this.startBattle(pos)
+  }
 
   private spawnNpcs() {
     const forced = buildForcedSpawnList(npcs, this.floor)
