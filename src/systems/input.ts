@@ -46,6 +46,13 @@ export function handleInput(scene: any, key: string) {
     return
   }
 
+  if (targetTile === 'battle_event') {
+    if (typeof scene.startBattleEventEncounter === 'function') {
+      scene.startBattleEventEncounter(nextPos)
+    }
+    return
+  }
+
   if (targetTile === 'door' && !scene.hasKey) {
     scene.cameras.main.shake(80, 0.003)
     return
@@ -86,6 +93,11 @@ export function handleInput(scene: any, key: string) {
     case 'event':
       scene.startEvent(nextPos)
       break
+    case 'battle_event':
+      if (typeof scene.startBattleEventEncounter === 'function') {
+        scene.startBattleEventEncounter(nextPos)
+      }
+      return
     case 'npc':
       scene.startNpc(nextPos)
       break

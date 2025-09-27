@@ -26,15 +26,16 @@ const SYMBOL_BY_TILE: Record<string, SymbolConfig> = {
   door: { frame: 2 },
   stairs_up: { frame: 3 },
   stairs_branch: { frame: 3, tint: 0x8fdcff },
-  enemy: { frame: 4 },
   weapon: { frame: 5 },
   armor: { frame: 6 },
   shop: { frame: 7, tint: 0xffb85c },
-  npc: { frame: 7, tint: 0x9fd4ff },
   item: { frame: 8 },
   event: { frame: 9 },
+  battle_event: { frame: 9, tint: 0xff6b6b },
   ending: { frame: 9, tint: 0xff71c8 }
 }
+
+const HIDDEN_SYMBOL_TILES = new Set(['enemy', 'item', 'npc'])
 
 type DirectionKey = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
 
@@ -143,6 +144,14 @@ function updateTileSprites(
     }
   }
 
+  if (HIDDEN_SYMBOL_TILES.has(tile)) {
+    const icon = caches.icons.get(posKey)
+    if (icon) {
+      icon.setVisible(false)
+    }
+    return
+  }
+
   const symbolConfig = SYMBOL_BY_TILE[tile]
   if (symbolConfig) {
     const symbol = caches.icons.get(posKey) ?? (() => {
@@ -226,6 +235,14 @@ function describeTile(scene: any, tile: string, x: number, y: number): string | 
     case 'event': {
       const event = scene.eventNodes?.get(posKey)
       return event ? `事件：${event.title}` : '事件：未知'
+    }
+    case 'battle_event': {
+      const battleEvent = scene.battleEventNodes?.get(posKey)
+      if (battleEvent) {
+        const summary = battleEvent.preview ?? battleEvent.description
+        return summary ? `戰鬥事件：${battleEvent.title}（${summary}）` : `戰鬥事件：${battleEvent.title}`
+      }
+      return '戰鬥事件：未知'
     }
     case 'npc': {
       const npc = scene.npcNodes?.get(posKey)
