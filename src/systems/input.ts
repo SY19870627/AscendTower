@@ -13,6 +13,7 @@ export function handleInput(scene: any, key: string) {
   }
 
   if (scene.battleOverlay?.isActive) return
+  if (scene.battleEventOverlay?.isActive) return
   if (scene.eventOverlay?.isActive) return
   if (scene.shopOverlay?.isActive) return
   if (scene.libraryOverlay?.isActive) return
@@ -85,6 +86,9 @@ export function handleInput(scene: any, key: string) {
       break
     case 'event':
       scene.startEvent(nextPos)
+      break
+    case 'battle_event':
+      scene.startBattleEventEncounter(nextPos)
       break
     case 'npc':
       scene.startNpc(nextPos)

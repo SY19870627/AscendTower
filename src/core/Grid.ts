@@ -52,6 +52,7 @@ export class Grid {
       t === 'armor' ||
       t === 'event' ||
       t === 'shop' ||
+      t === 'battle_event' ||
       t === 'npc' ||
       t === 'item' ||
       t === 'ending'

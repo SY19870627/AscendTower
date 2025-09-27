@@ -2,8 +2,10 @@ import Phaser from 'phaser'
 import { Grid } from '../core/Grid'
 import type {
   ArmorDef,
+  BattleEventDef,
   EventDef,
   EventOutcome,
+  EventOption,
   EnemyDef,
   MissionDef,
   MissionStatus,
@@ -30,6 +32,7 @@ import {
 } from '../systems/spawning'
 import { enemies, getEnemyDef } from '../content/enemies'
 import { events, getEventDef } from '../content/events'
+import { battleEvents, getBattleEventDef } from '../content/battleEvents'
 import { npcs, getNpcDef } from '../content/npcs'
 import { shops, getShopsForFloor, getShopDef } from '../content/shops'
 import { items, getItemDef } from '../content/items'
@@ -38,6 +41,7 @@ import { armors, getArmorDef } from '../content/armors'
 import { skills } from '../content/skills'
 import { getMissionForFloor } from '../content/missions'
 import { BattleOverlay, type BattleInitData } from './BattleOverlay'
+import { BattleEventOverlay } from './BattleEventOverlay'
 import { EventOverlay, type EventResolution } from './EventOverlay'
 import { ShopOverlay, type ShopResolution, type ShopInventoryEntry } from './ShopOverlay'
 import { DialogueOverlay } from './DialogueOverlay'
@@ -48,11 +52,26 @@ type BranchEntranceState = {
   branchKey: string | null
 }
 
+type BattleEventState = {
+  defId: string
+  totalWaves: number
+  remainingWaves: number
+  rewards: EventOption[]
+}
+
+type ActiveBattleEventContext = {
+  pos: Vec2
+  posKey: string
+  def: BattleEventDef
+}
+
 type FloorState = {
   grid: Grid
   weaponDrops: Map<string, WeaponDef>
   armorDrops: Map<string, ArmorDef>
   eventNodes: Map<string, EventDef>
+  battleEventNodes: Map<string, BattleEventDef>
+  battleEventStates: Map<string, BattleEventState>
   npcNodes: Map<string, NpcDef>
   shopNodes: Map<string, ShopDef>
   itemDrops: Map<string, ItemDef>
@@ -65,7 +84,7 @@ type FloorState = {
 }
 
 export const SAVE_KEY = 'ascend-tower-save-v1'
-const SAVE_VERSION = 4
+const SAVE_VERSION = 5
 
 type SerializedGridState = {
   w?: number
@@ -81,6 +100,13 @@ type SerializedGridState = {
   rngState?: number
 }
 
+type SerializedBattleEventState = {
+  defId: string
+  totalWaves: number
+  remainingWaves: number
+  rewards?: EventOption[]
+}
+
 type SerializedFloorState = {
   floor: number
   branchPath?: number[]
@@ -89,6 +115,8 @@ type SerializedFloorState = {
   armorDrops?: Array<[string, string]>
   itemDrops?: Array<[string, string]>
   eventNodes?: Array<[string, string]>
+  battleEventNodes?: Array<[string, string]>
+  battleEventStates?: Array<[string, SerializedBattleEventState]>
   npcNodes?: Array<[string, string]>
   shopNodes?: Array<[string, string]>
   enemyNodes?: Array<[string, string | EnemyDef]>
@@ -146,12 +174,15 @@ export class GameScene extends Phaser.Scene {
   weaponDrops = new Map<string, WeaponDef>()
   armorDrops = new Map<string, ArmorDef>()
   eventNodes = new Map<string, EventDef>()
+  battleEventNodes = new Map<string, BattleEventDef>()
+  battleEventStates = new Map<string, BattleEventState>()
   npcNodes = new Map<string, NpcDef>()
   shopNodes = new Map<string, ShopDef>()
   itemDrops = new Map<string, ItemDef>()
   enemyNodes = new Map<string, EnemyDef>()
   lastActionMessage = ''
   battleOverlay!: BattleOverlay
+  battleEventOverlay!: BattleEventOverlay
   eventOverlay!: EventOverlay
   shopOverlay!: ShopOverlay
   dialogueOverlay!: DialogueOverlay
@@ -188,6 +219,7 @@ export class GameScene extends Phaser.Scene {
   private readonly playerState = new PlayerState()
   private activeFloorMission: MissionDef | null = null
   private pendingBranchReminder = false
+  private activeBattleEvent: ActiveBattleEventContext | null = null
 
   private makeFloorKey(floor: number, branchPath: number[]): string {
     if (!branchPath.length) return `${Math.max(1, Math.floor(floor))}`
@@ -390,6 +422,8 @@ export class GameScene extends Phaser.Scene {
     this.weaponDrops = new Map<string, WeaponDef>()
     this.armorDrops = new Map<string, ArmorDef>()
     this.eventNodes = new Map<string, EventDef>()
+    this.battleEventNodes = new Map<string, BattleEventDef>()
+    this.battleEventStates = new Map<string, BattleEventState>()
     this.npcNodes = new Map<string, NpcDef>()
     this.shopNodes = new Map<string, ShopDef>()
     this.itemDrops = new Map<string, ItemDef>()
@@ -406,6 +440,7 @@ export class GameScene extends Phaser.Scene {
     this.endingTriggered = false
     this.lifespanEndingTriggered = false
     this.activeFloorMission = null
+    this.activeBattleEvent = null
     this.syncFloorLastAction()
   }
 
@@ -431,6 +466,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(-1)
 
     this.battleOverlay = new BattleOverlay(this)
+    this.battleEventOverlay = new BattleEventOverlay(this)
     this.eventOverlay = new EventOverlay(this)
     this.shopOverlay = new ShopOverlay(this)
     this.dialogueOverlay = new DialogueOverlay(this)
@@ -824,6 +860,8 @@ export class GameScene extends Phaser.Scene {
       this.weaponDrops = cached.weaponDrops
       this.armorDrops = cached.armorDrops
       this.eventNodes = cached.eventNodes
+      this.battleEventNodes = cached.battleEventNodes
+      this.battleEventStates = cached.battleEventStates
       this.npcNodes = cached.npcNodes
       this.shopNodes = cached.shopNodes
       this.itemDrops = cached.itemDrops
@@ -847,6 +885,8 @@ export class GameScene extends Phaser.Scene {
     this.weaponDrops = new Map<string, WeaponDef>()
     this.armorDrops = new Map<string, ArmorDef>()
     this.eventNodes = new Map<string, EventDef>()
+    this.battleEventNodes = new Map<string, BattleEventDef>()
+    this.battleEventStates = new Map<string, BattleEventState>()
     this.npcNodes = new Map<string, NpcDef>()
     this.shopNodes = new Map<string, ShopDef>()
     this.itemDrops = new Map<string, ItemDef>()
@@ -871,6 +911,7 @@ export class GameScene extends Phaser.Scene {
     spawnItems(this)
     this.spawnShops()
     this.spawnEvents()
+    this.spawnBattleEvents()
     this.spawnNpcs()
     this.spawnBranchEntrances()
     if (this.isBranchFloor) {
@@ -883,6 +924,8 @@ export class GameScene extends Phaser.Scene {
       weaponDrops: this.weaponDrops,
       armorDrops: this.armorDrops,
       eventNodes: this.eventNodes,
+      battleEventNodes: this.battleEventNodes,
+      battleEventStates: this.battleEventStates,
       npcNodes: this.npcNodes,
       shopNodes: this.shopNodes,
       enemyNodes: this.enemyNodes,
@@ -1171,6 +1214,16 @@ export class GameScene extends Phaser.Scene {
       armorDrops: Array.from(state.armorDrops.entries()).map(([pos, armor]) => [pos, armor.id]),
       itemDrops: Array.from(state.itemDrops.entries()).map(([pos, item]) => [pos, item.id]),
       eventNodes: Array.from(state.eventNodes.entries()).map(([pos, event]) => [pos, event.id]),
+      battleEventNodes: Array.from(state.battleEventNodes.entries()).map(([pos, event]) => [pos, event.id]),
+      battleEventStates: Array.from(state.battleEventStates.entries()).map(([pos, info]) => [
+        pos,
+        {
+          defId: info.defId,
+          totalWaves: info.totalWaves,
+          remainingWaves: info.remainingWaves,
+          rewards: info.rewards.map(option => this.cloneEventOption(option))
+        }
+      ]),
       npcNodes: Array.from(state.npcNodes.entries()).map(([pos, npc]) => [pos, npc.id]),
       shopNodes: Array.from(state.shopNodes.entries()).map(([pos, shop]) => [pos, shop.id]),
       enemyNodes: Array.from(state.enemyNodes.entries()).map(([pos, enemy]) => {
@@ -1231,6 +1284,28 @@ export class GameScene extends Phaser.Scene {
       if (def) eventNodes.set(pos, def)
     }
 
+    const battleEventNodes = new Map<string, BattleEventDef>()
+    for (const [pos, id] of data.battleEventNodes ?? []) {
+      const def = getBattleEventDef(id)
+      if (def) battleEventNodes.set(pos, def)
+    }
+
+    const battleEventStates = new Map<string, BattleEventState>()
+    for (const [pos, entry] of data.battleEventStates ?? []) {
+      if (!entry?.defId) continue
+      const total = Math.max(1, Math.floor(entry.totalWaves ?? 1))
+      const remaining = Math.max(0, Math.min(total, Math.floor(entry.remainingWaves ?? total)))
+      const rewardsSource = Array.isArray(entry.rewards) ? entry.rewards : undefined
+      const rewards = (rewardsSource ?? getBattleEventDef(entry.defId)?.rewardOptions ?? [])
+        .map(option => this.cloneEventOption(option))
+      battleEventStates.set(pos, {
+        defId: entry.defId,
+        totalWaves: total,
+        remainingWaves: remaining,
+        rewards
+      })
+    }
+
     const npcNodes = new Map<string, NpcDef>()
     for (const [pos, id] of data.npcNodes ?? []) {
       const def = getNpcDef(id)
@@ -1277,6 +1352,8 @@ export class GameScene extends Phaser.Scene {
       weaponDrops,
       armorDrops,
       eventNodes,
+      battleEventNodes,
+      battleEventStates,
       npcNodes,
       shopNodes,
       enemyNodes,
@@ -1356,6 +1433,8 @@ export class GameScene extends Phaser.Scene {
     this.weaponDrops = active.weaponDrops
     this.armorDrops = active.armorDrops
     this.eventNodes = active.eventNodes
+    this.battleEventNodes = active.battleEventNodes
+    this.battleEventStates = active.battleEventStates
     this.npcNodes = active.npcNodes
     this.shopNodes = active.shopNodes
     this.itemDrops = active.itemDrops
@@ -1468,6 +1547,7 @@ export class GameScene extends Phaser.Scene {
 
   private closeAllOverlays() {
     this.battleOverlay?.close()
+    this.battleEventOverlay?.close()
     this.eventOverlay?.close()
     this.shopOverlay?.close()
     this.dialogueOverlay?.close()
@@ -1525,6 +1605,104 @@ export class GameScene extends Phaser.Scene {
       const pos = this.grid.place('event')
       this.eventNodes.set(makePosKey(pos.x, pos.y), def)
     }
+  }
+
+  private spawnBattleEvents() {
+    this.battleEventNodes.clear()
+    this.battleEventStates.clear()
+
+    const forced = buildForcedSpawnList(battleEvents, this.floor)
+    if (forced.length) {
+      const pool = [...forced]
+      while (pool.length) {
+        const def = pool.splice(this.grid.rng.int(0, pool.length - 1), 1)[0]
+        const pos = this.grid.place('battle_event')
+        const posKey = makePosKey(pos.x, pos.y)
+        this.battleEventNodes.set(posKey, def)
+        this.battleEventStates.set(posKey, this.createBattleEventState(def))
+      }
+      return
+    }
+
+    const available = battleEvents.filter(event => isDefAvailableOnFloor(event, this.floor))
+    if (!available.length) return
+
+    const spawnCount = Math.min(Math.max(1, Math.floor(this.floor / 4) + 1), Math.min(2, available.length))
+    for (let i = 0; i < spawnCount; i++) {
+      const def = available[this.grid.rng.int(0, available.length - 1)]
+      const pos = this.grid.place('battle_event')
+      const posKey = makePosKey(pos.x, pos.y)
+      this.battleEventNodes.set(posKey, def)
+      this.battleEventStates.set(posKey, this.createBattleEventState(def))
+    }
+  }
+
+  private createBattleEventState(def: BattleEventDef): BattleEventState {
+    const total = this.rollBattleEventWaveCount(def)
+    return {
+      defId: def.id,
+      totalWaves: total,
+      remainingWaves: total,
+      rewards: this.drawBattleEventRewards(def)
+    }
+  }
+
+  private rollBattleEventWaveCount(def: BattleEventDef): number {
+    const spec = def.waveCount
+    if (typeof spec === 'number') {
+      return Math.max(1, Math.floor(spec))
+    }
+    if (Array.isArray(spec)) {
+      const candidates = spec
+        .map(value => Math.max(1, Math.floor(value)))
+        .filter(value => Number.isFinite(value) && value > 0)
+      if (!candidates.length) return 1
+      const pick = this.grid.rng.int(0, candidates.length - 1)
+      return candidates[pick]
+    }
+    const min = Math.max(1, Math.floor(spec.min ?? 1))
+    const max = Math.max(min, Math.floor(spec.max ?? min))
+    return this.grid.rng.int(min, max)
+  }
+
+  private drawBattleEventRewards(def: BattleEventDef): EventOption[] {
+    const options = def.rewardOptions.map(option => this.cloneEventOption(option))
+    for (let i = options.length - 1; i > 0; i--) {
+      const j = this.grid.rng.int(0, i)
+      const tmp = options[i]
+      options[i] = options[j]
+      options[j] = tmp
+    }
+    return options
+  }
+
+  private cloneEventOutcome(outcome: EventOutcome): EventOutcome {
+    return {
+      ...outcome,
+      grantItems: outcome.grantItems?.map(item => ({ id: item.id, quantity: item.quantity })),
+      grantStatuses: outcome.grantStatuses?.map(status => ({ id: status.id, duration: status.duration })),
+      grantSkills: outcome.grantSkills ? [...outcome.grantSkills] : undefined
+    }
+  }
+
+  private cloneEventOption(option: EventOption): EventOption {
+    return {
+      id: option.id,
+      label: option.label,
+      outcome: this.cloneEventOutcome(option.outcome)
+    }
+  }
+
+  private ensureBattleEventState(posKey: string, def: BattleEventDef): BattleEventState {
+    const existing = this.battleEventStates.get(posKey)
+    if (existing && existing.defId === def.id) {
+      existing.totalWaves = Math.max(1, Math.floor(existing.totalWaves))
+      existing.remainingWaves = Math.max(0, Math.min(existing.totalWaves, Math.floor(existing.remainingWaves)))
+      return existing
+    }
+    const created = this.createBattleEventState(def)
+    this.battleEventStates.set(posKey, created)
+    return created
   }
 
   private spawnBranchEntrances() {
@@ -1596,6 +1774,184 @@ export class GameScene extends Phaser.Scene {
     const eventDef = this.eventNodes.get(key)
     if (!eventDef) return
     this.eventOverlay.open({ event: eventDef, pos })
+  }
+
+  startBattleEventEncounter(pos: Vec2) {
+    if (this.libraryOverlay?.isActive) this.libraryOverlay.close()
+    if (this.battleOverlay?.isActive) return
+    if (this.battleEventOverlay?.isActive) return
+    const key = makePosKey(pos.x, pos.y)
+    const def = this.battleEventNodes.get(key)
+    if (!def) return
+    const state = this.ensureBattleEventState(key, def)
+    if (this.grid.playerPos.x === pos.x && this.grid.playerPos.y === pos.y) {
+      this.grid.setTileUnderPlayer('battle_event')
+    }
+    if (state.remainingWaves <= 0) {
+      this.openBattleEventRewards({ x: pos.x, y: pos.y }, def, state)
+      return
+    }
+    this.openBattleEventPrompt({ x: pos.x, y: pos.y }, def, state)
+  }
+
+  private openBattleEventPrompt(pos: Vec2, def: BattleEventDef, state: BattleEventState) {
+    if (!this.battleEventOverlay) return
+    const posCopy = { x: pos.x, y: pos.y }
+    const key = makePosKey(posCopy.x, posCopy.y)
+    this.battleEventOverlay.open({
+      mode: 'prompt',
+      event: def,
+      pos: posCopy,
+      totalWaves: state.totalWaves,
+      remainingWaves: state.remainingWaves,
+      onFight: () => {
+        const latest = this.ensureBattleEventState(key, def)
+        if (latest.remainingWaves <= 0) {
+          this.openBattleEventRewards(posCopy, def, latest)
+          return
+        }
+        this.beginBattleEventWave(posCopy, def)
+      },
+      onRetreat: () => this.handleBattleEventRetreat(posCopy, def)
+    })
+  }
+
+  private beginBattleEventWave(pos: Vec2, def: BattleEventDef) {
+    const key = makePosKey(pos.x, pos.y)
+    const state = this.ensureBattleEventState(key, def)
+    if (state.remainingWaves <= 0) {
+      this.openBattleEventRewards({ x: pos.x, y: pos.y }, def, state)
+      return
+    }
+
+    const enemy = getEnemyDef(def.enemyId)
+    if (!enemy) {
+      this.appendActionMessages([`${def.title} 的敵人資料缺失，戰鬥無法進行。`])
+      this.battleEventNodes.delete(key)
+      this.battleEventStates.delete(key)
+      this.grid.tiles[pos.y][pos.x] = 'floor'
+      if (this.grid.playerPos.x === pos.x && this.grid.playerPos.y === pos.y) {
+        this.grid.setTileUnderPlayer('floor')
+      }
+      this.syncFloorLastAction()
+      draw(this)
+      return
+    }
+
+    const chargeEntries: [WeaponAttributeId, number][] =
+      this.weaponAttributeCharges instanceof Map
+        ? Array.from(this.weaponAttributeCharges.entries()).map(([id, value]) => [
+            id,
+            Math.max(0, Math.floor(value ?? 0))
+          ])
+        : this.weaponAttributeCharges
+        ? Object.entries(this.weaponAttributeCharges).map(([id, value]) => [
+            id as WeaponAttributeId,
+            Math.max(0, Math.floor((value as number) ?? 0))
+          ])
+        : []
+
+    const payload: BattleInitData = {
+      enemy,
+      enemyPos: { x: pos.x, y: pos.y },
+      player: {
+        hp: this.playerStats.hp,
+        weapon: this.playerWeapon,
+        armor: this.playerArmor,
+        weaponAttributeCharges: chargeEntries
+      }
+    }
+
+    this.activeBattleEvent = { pos: { x: pos.x, y: pos.y }, posKey: key, def }
+    this.battleOverlay.open(payload)
+  }
+
+  private handleBattleEventRetreat(pos: Vec2, def: BattleEventDef) {
+    const key = makePosKey(pos.x, pos.y)
+    const state = this.ensureBattleEventState(key, def)
+    const cleared = Math.max(0, state.totalWaves - state.remainingWaves)
+    const message = cleared > 0
+      ? `你暫時撤出戰圈（已清除 ${cleared}/${state.totalWaves} 波）。`
+      : '你選擇暫避鋒芒，敵人仍在戒備。'
+    this.appendActionMessages([message])
+    this.syncFloorLastAction()
+    if (this.grid.playerPos.x === pos.x && this.grid.playerPos.y === pos.y) {
+      this.grid.setTileUnderPlayer('battle_event')
+    }
+    draw(this)
+  }
+
+  private openBattleEventRewards(pos: Vec2, def: BattleEventDef, state: BattleEventState) {
+    if (!this.battleEventOverlay) return
+    const rewards = state.rewards.map(option => this.cloneEventOption(option))
+    const posCopy = { x: pos.x, y: pos.y }
+    const key = makePosKey(posCopy.x, posCopy.y)
+    this.activeBattleEvent = null
+    this.battleEventOverlay.open({
+      mode: 'rewards',
+      event: def,
+      rewards,
+      onSelect: option => {
+        const outcomeMessage = this.applyEventOutcome(option.outcome)
+        this.appendActionMessages([`你挑選了「${option.label}」。`, outcomeMessage])
+        this.syncFloorLastAction()
+        this.battleEventNodes.delete(key)
+        this.battleEventStates.delete(key)
+        this.grid.tiles[posCopy.y][posCopy.x] = 'floor'
+        if (this.grid.playerPos.x === posCopy.x && this.grid.playerPos.y === posCopy.y) {
+          this.grid.setTileUnderPlayer('floor')
+        }
+        draw(this)
+      }
+    })
+  }
+
+  private handleBattleEventVictory(enemy: EnemyDef, enemyPos: Vec2): boolean {
+    const context = this.activeBattleEvent
+    if (!context) return false
+    const posKey = makePosKey(enemyPos.x, enemyPos.y)
+    if (context.posKey !== posKey) return false
+
+    const def = this.battleEventNodes.get(posKey)
+    const state = this.battleEventStates.get(posKey)
+    if (!def || !state) {
+      this.activeBattleEvent = null
+      return false
+    }
+
+    state.totalWaves = Math.max(1, Math.floor(state.totalWaves))
+    state.remainingWaves = Math.max(0, Math.min(state.totalWaves, Math.floor(state.remainingWaves - 1)))
+
+    this.cameras.main.flash(120, 80, 200, 255)
+
+    const cleared = Math.max(0, state.totalWaves - state.remainingWaves)
+    const summary = `擊敗 ${enemy.name}。波次進度：${cleared}/${state.totalWaves}`
+    this.appendActionMessages([summary])
+    this.syncFloorLastAction()
+
+    const missionMessages = this.playerState.recordEnemyDefeat(enemy)
+    if (missionMessages.length) {
+      this.handleMissionMessages(missionMessages)
+    }
+
+    if (this.grid.playerPos.x === enemyPos.x && this.grid.playerPos.y === enemyPos.y) {
+      this.grid.setTileUnderPlayer('battle_event')
+    }
+
+    this.activeBattleEvent = null
+
+    if (state.remainingWaves > 0) {
+      this.time.delayedCall(160, () => {
+        this.openBattleEventPrompt({ x: enemyPos.x, y: enemyPos.y }, def, state)
+      })
+    } else {
+      this.time.delayedCall(160, () => {
+        this.openBattleEventRewards({ x: enemyPos.x, y: enemyPos.y }, def, state)
+      })
+    }
+
+    draw(this)
+    return true
   }
 
 
@@ -1885,6 +2241,10 @@ export class GameScene extends Phaser.Scene {
     }
     this.weaponAttributeCharges = normalizedCharges
 
+    if (this.handleBattleEventVictory(enemy, enemyPos)) {
+      return
+    }
+
     this.grid.movePlayer(enemyPos)
     this.grid.enemyPos = this.grid.enemyPos.filter(p => p.x !== enemyPos.x || p.y !== enemyPos.y)
     this.enemyNodes.delete(makePosKey(enemyPos.x, enemyPos.y))
@@ -1927,6 +2287,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   cancelBattle() {
+    const context = this.activeBattleEvent
+    if (context) {
+      const def = this.battleEventNodes.get(context.posKey)
+      if (def) {
+        const state = this.ensureBattleEventState(context.posKey, def)
+        this.handleBattleEventRetreat({ x: context.pos.x, y: context.pos.y }, def)
+        this.time.delayedCall(160, () => {
+          this.openBattleEventPrompt({ x: context.pos.x, y: context.pos.y }, def, state)
+        })
+      } else {
+        draw(this)
+      }
+      this.activeBattleEvent = null
+      return
+    }
     draw(this)
   }
 

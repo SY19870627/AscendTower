@@ -33,6 +33,7 @@ const SYMBOL_BY_TILE: Record<string, SymbolConfig> = {
   npc: { frame: 7, tint: 0x9fd4ff },
   item: { frame: 8 },
   event: { frame: 9 },
+  battle_event: { frame: 9, tint: 0xffad66 },
   ending: { frame: 9, tint: 0xff71c8 }
 }
 
@@ -226,6 +227,16 @@ function describeTile(scene: any, tile: string, x: number, y: number): string | 
     case 'event': {
       const event = scene.eventNodes?.get(posKey)
       return event ? `事件：${event.title}` : '事件：未知'
+    }
+    case 'battle_event': {
+      const battleEvent = scene.battleEventNodes?.get?.(posKey)
+      if (!battleEvent) return '強敵事件：未知'
+      const state = scene.battleEventStates?.get?.(posKey)
+      if (state) {
+        const cleared = Math.max(0, (state.totalWaves ?? 0) - (state.remainingWaves ?? 0))
+        return `強敵事件：${battleEvent.title}（進度 ${cleared}/${state.totalWaves}）`
+      }
+      return `強敵事件：${battleEvent.title}`
     }
     case 'npc': {
       const npc = scene.npcNodes?.get(posKey)

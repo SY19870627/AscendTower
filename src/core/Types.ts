@@ -13,6 +13,7 @@ export type Tile =
   | 'event'
   | 'shop'
   | 'npc'
+  | 'battle_event'
   | 'item'
   | 'ending'
 export interface SpawnRule {
@@ -141,6 +142,20 @@ export interface EventOption {
   id: string
   label: string
   outcome: EventOutcome
+}
+
+export type BattleEventWaveSpec =
+  | number
+  | { min: number; max: number }
+  | number[]
+
+export interface BattleEventDef extends SpawnableDef {
+  id: string
+  title: string
+  description: string
+  enemyId: string
+  waveCount: BattleEventWaveSpec
+  rewardOptions: [EventOption, EventOption, EventOption]
 }
 
 export interface ShopOffer {
