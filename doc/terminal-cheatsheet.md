@@ -16,6 +16,18 @@
 node -v
 npm -v
 
+npm -v如果出現下面錯誤
+PS D:\Git\DragonSuccession> node -v v22.20.0 
+PS D:\Git\DragonSuccession> npm -v npm : 
+因為這個系統上已停用指令碼執行，所以無法載入 C:\Program Files\nodejs\npm.ps1 檔案。
+如需詳細資訊，請參閱 about_Execution_Policies，網址為 https:/go.microsoft.com/fwlink/? LinkID=135170。 
+位於 線路:1 字元:1 + npm -v + ~~~ + CategoryInfo : 
+SecurityError: (:) [], PSSecurityException + FullyQualifiedErrorId : UnauthorizedAccess
+
+代表 PowerShell 的執行政策擋掉了 npm.ps1
+以系統管理員身分開 PowerShell，輸入：
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
 cd Git資料夾
 
 # 安裝專案依賴
